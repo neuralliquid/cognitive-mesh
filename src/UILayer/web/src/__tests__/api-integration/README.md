@@ -33,8 +33,8 @@ For tests that go through Zustand stores (which use `openapi-fetch` clients), mo
 
 ```bash
 # Run all tests including integration tests
-npm test -- --watchAll=false
+pnpm test --watchAll=false
 
 # Run only integration tests
-npx jest src/__tests__/api-integration --watchAll=false
+pnpm exec jest src/__tests__/api-integration --watchAll=false
 ```

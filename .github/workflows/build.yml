@@ -95,7 +95,7 @@ jobs:
         continue-on-error: true
 
       - name: Test
-        run: pnpm test -- --ci --coverage --passWithNoTests
+        run: pnpm test --ci --coverage --passWithNoTests
 
       - name: Upload coverage
         if: always()
