@@ -23,7 +23,7 @@
     "preview": "pnpm exec redocly preview-docs openapi.yaml",
     "bundle": "pnpm exec redocly bundle openapi.yaml --output bundled-openapi.yaml"
   },
-  "packageManager": "pnpm@10.33.2",
+  "packageManager": "pnpm@10.34.4",
   "keywords": [
     "openapi",
     "swagger",
@@ -33,18 +33,18 @@
   "author": "Cognitive Mesh Team",
   "license": "Proprietary",
   "devDependencies": {
-    "@redocly/cli": "2.25.1",
-    "@types/k6": "1.6.0",
-    "ajv": "8.18.0",
+    "@redocly/cli": "2.38.0",
+    "@types/k6": "1.7.0",
+    "ajv": "8.20.0",
     "ajv-formats": "3.0.1",
     "commander": "14.0.3",
     "husky": "9.1.7",
-    "jest": "30.3.0",
+    "jest": "30.4.2",
     "js-yaml": "4.1.1",
     "k6": "0.0.0",
     "nodemon": "3.1.14",
     "openapi-types": "12.1.3",
-    "prettier": "3.8.1",
+    "prettier": "3.9.4",
     "swagger-cli": "4.0.4"
   },
   "prettier": {
