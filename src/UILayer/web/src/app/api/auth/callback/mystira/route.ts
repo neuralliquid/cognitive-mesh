@@ -31,7 +31,18 @@ function htmlEscape(value: string): string {
   })
 }
 
+function getPublicOrigin(request: NextRequest): string {
+  const forwardedHost = request.headers.get("x-forwarded-host")
+  const forwardedProto = request.headers.get("x-forwarded-proto")
+  const host = forwardedHost ?? request.headers.get("host")
+  if (host) {
+    return `${forwardedProto ?? request.nextUrl.protocol.replace(":", "")}://${host}`
+  }
+  return request.nextUrl.origin
+}
+
 export async function GET(request: NextRequest) {
+  const origin = getPublicOrigin(request)
   const expectedState = request.cookies.get("cm_mystira_state")?.value
   const verifier = request.cookies.get("cm_mystira_verifier")?.value
   const returnTo = sanitizeReturnTo(request.cookies.get("cm_mystira_return_to")?.value)
@@ -40,14 +51,14 @@ export async function GET(request: NextRequest) {
   const error = request.nextUrl.searchParams.get("error")
 
   if (error) {
-    return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(error)}&returnTo=${encodeURIComponent(returnTo)}`, request.url))
+    return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(error)}&returnTo=${encodeURIComponent(returnTo)}`, origin))
   }
 
   if (!clientSecret || !expectedState || !verifier || !state || state !== expectedState || !code) {
-    return NextResponse.redirect(new URL(`/login?error=mystira_callback_invalid&returnTo=${encodeURIComponent(returnTo)}`, request.url))
+    return NextResponse.redirect(new URL(`/login?error=mystira_callback_invalid&returnTo=${encodeURIComponent(returnTo)}`, origin))
   }
 
-  const redirectUri = `${request.nextUrl.origin}/api/auth/callback/mystira`
+  const redirectUri = `${origin}/api/auth/callback/mystira`
   const form = new URLSearchParams({
     grant_type: "authorization_code",
     client_id: clientId,
@@ -65,17 +76,17 @@ export async function GET(request: NextRequest) {
   })
 
   if (!tokenResponse.ok) {
-    return NextResponse.redirect(new URL(`/login?error=mystira_token_exchange_failed&returnTo=${encodeURIComponent(returnTo)}`, request.url))
+    return NextResponse.redirect(new URL(`/login?error=mystira_token_exchange_failed&returnTo=${encodeURIComponent(returnTo)}`, origin))
   }
 
   const tokenPayload = await tokenResponse.json()
   const accessToken = tokenPayload.access_token ?? tokenPayload.id_token
   const refreshToken = tokenPayload.refresh_token
   if (!accessToken) {
-    return NextResponse.redirect(new URL(`/login?error=mystira_token_missing&returnTo=${encodeURIComponent(returnTo)}`, request.url))
+    return NextResponse.redirect(new URL(`/login?error=mystira_token_missing&returnTo=${encodeURIComponent(returnTo)}`, origin))
   }
 
-  const secure = request.nextUrl.protocol === "https:"
+  const secure = new URL(origin).protocol === "https:"
   const response = new NextResponse(
     `<!doctype html><html><body><script>
 localStorage.setItem("cm_access_token", ${JSON.stringify(accessToken)});
