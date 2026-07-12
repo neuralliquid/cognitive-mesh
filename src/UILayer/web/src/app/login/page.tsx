@@ -3,6 +3,7 @@
 import { FormEvent, Suspense } from "react"
 import { useAuth } from "@/contexts/AuthContext"
 import { consumeReturnTo, isMystiraIdentityConfigured } from "@/lib/auth/mystiraIdentity"
+import { KeyRound, Mail } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useMemo, useState } from "react"
 
@@ -17,11 +18,13 @@ function sanitizeReturnTo(value: string | null): string {
 }
 
 function LoginForm() {
-  const { loginWithMystira, isAuthenticated, isLoading } = useAuth()
+  const { loginWithMystira, requestMagicLink, isAuthenticated, isLoading } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
   const [error, setError] = useState("")
-  const [submitting, setSubmitting] = useState(false)
+  const [notice, setNotice] = useState("")
+  const [email, setEmail] = useState("")
+  const [submittingProvider, setSubmittingProvider] = useState<"entra" | "magic" | null>(null)
 
   const returnTo = useMemo(() => {
     return sanitizeReturnTo(searchParams.get("returnTo") ?? consumeReturnTo())
@@ -33,32 +36,41 @@ function LoginForm() {
     }
   }, [isAuthenticated, isLoading, router, returnTo])
 
-  async function handleSignIn() {
+  function handleEntraClick() {
+    if (!isMystiraIdentityConfigured) {
+      setError("Mystira identity is not configured for this deployment")
+      return
+    }
     setError("")
-    setSubmitting(true)
-    try {
-      await loginWithMystira(returnTo)
-    } catch (err) {
+    setNotice("")
+    setSubmittingProvider("entra")
+    loginWithMystira(returnTo).catch((err) => {
       setError(err instanceof Error ? err.message : "Login failed")
-      setSubmitting(false)
-    }
+      setSubmittingProvider(null)
+    })
   }
 
-  async function handleFallbackSubmit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    if (!isMystiraIdentityConfigured) {
-      setError("Mystira identity is not configured for this deployment")
+  function handleMagicSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const trimmedEmail = email.trim()
+    if (!trimmedEmail || !trimmedEmail.includes("@")) {
+      setError("Enter a valid email address")
       return
     }
-    await handleSignIn()
-  }
 
-  function handleButtonClick() {
-    if (!isMystiraIdentityConfigured) {
-      setError("Mystira identity is not configured for this deployment")
-      return
-    }
-    void handleSignIn()
+    setError("")
+    setNotice("")
+    setSubmittingProvider("magic")
+    requestMagicLink(trimmedEmail)
+      .then(() => {
+        setNotice("Check your email for a Mystira magic sign-in link.")
+      })
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : "Unable to send magic link")
+      })
+      .finally(() => {
+        setSubmittingProvider(null)
+      })
   }
 
   if (isLoading) {
@@ -79,22 +91,58 @@ function LoginForm() {
           </p>
         </div>
 
-        <form onSubmit={handleFallbackSubmit} className="space-y-5">
+        <div className="space-y-4">
           {error && (
             <div className="rounded-lg border border-red-800 bg-red-950/50 px-4 py-3 text-sm text-red-300">
               {error}
             </div>
           )}
+          {notice && (
+            <div className="rounded-lg border border-emerald-800 bg-emerald-950/40 px-4 py-3 text-sm text-emerald-200">
+              {notice}
+            </div>
+          )}
 
           <button
             type="button"
-            onClick={handleButtonClick}
-            disabled={submitting}
-            className="w-full rounded-lg bg-cyan-600 px-4 py-2.5 font-medium text-white transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-50"
+            onClick={handleEntraClick}
+            disabled={submittingProvider !== null}
+            className="flex w-full items-center justify-center gap-3 rounded-lg bg-cyan-600 px-4 py-3 font-medium text-white transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {submitting ? "Signing in..." : "Sign in with Mystira"}
+            <KeyRound aria-hidden="true" className="h-4 w-4" />
+            {submittingProvider === "entra" ? "Opening Microsoft Entra..." : "Continue with Microsoft Entra"}
           </button>
-        </form>
+
+          <div className="flex items-center gap-3 py-1 text-xs uppercase tracking-wider text-gray-500">
+            <span className="h-px flex-1 bg-gray-800" />
+            <span>or</span>
+            <span className="h-px flex-1 bg-gray-800" />
+          </div>
+
+          <form onSubmit={handleMagicSubmit} className="space-y-3">
+            <label className="sr-only" htmlFor="magic-email">
+              Email address
+            </label>
+            <input
+              id="magic-email"
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              autoComplete="email"
+              placeholder="you@example.com"
+              disabled={submittingProvider !== null}
+              className="w-full rounded-lg border border-gray-700 bg-gray-950/60 px-4 py-3 text-white outline-none transition placeholder:text-gray-500 focus:border-cyan-500 disabled:cursor-not-allowed disabled:opacity-50"
+            />
+            <button
+              type="submit"
+              disabled={submittingProvider !== null}
+              className="flex w-full items-center justify-center gap-3 rounded-lg border border-cyan-700/70 bg-gray-950/40 px-4 py-3 font-medium text-cyan-100 transition hover:border-cyan-500 hover:bg-cyan-950/30 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Mail aria-hidden="true" className="h-4 w-4" />
+              {submittingProvider === "magic" ? "Sending magic link..." : "Send Mystira magic link"}
+            </button>
+          </form>
+        </div>
 
         <div className="mt-8 space-y-2 border-t border-gray-800 pt-6 text-center text-xs leading-5 text-gray-500">
           <p>
