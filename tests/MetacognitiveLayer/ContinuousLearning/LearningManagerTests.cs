@@ -1,4 +1,5 @@
 using FluentAssertions;
+using CognitiveMesh.Shared.Interfaces;
 using FoundationLayer.EnterpriseConnectors;
 using MetacognitiveLayer.ContinuousLearning;
 using Microsoft.Extensions.Configuration;
@@ -15,10 +16,6 @@ namespace CognitiveMesh.Tests.MetacognitiveLayer.ContinuousLearning;
 /// </summary>
 public class LearningManagerTests
 {
-    private const string TestEndpoint = "https://test.openai.azure.com/";
-    private const string TestApiKey = "test-api-key-00000000000000000000";
-    private const string TestDeployment = "gpt-4-test";
-
     private readonly Mock<ILogger<LearningManager>> _loggerMock;
 
     /// <summary>
@@ -115,9 +112,7 @@ public class LearningManagerTests
     {
         var ffm = CreateFeatureFlagManager(flagOverrides);
         return new LearningManager(
-            TestEndpoint,
-            TestApiKey,
-            TestDeployment,
+            new FakeLLMClient(),
             ffm,
             logger);
     }
@@ -131,14 +126,43 @@ public class LearningManagerTests
     public void Constructor_NullFeatureFlagManager_ThrowsArgumentNullException()
     {
         var act = () => new LearningManager(
-            TestEndpoint,
-            TestApiKey,
-            TestDeployment,
+            new FakeLLMClient(),
             featureFlagManager: null!,
             logger: null);
 
         act.Should().Throw<ArgumentNullException>()
             .And.ParamName.Should().Be("featureFlagManager");
+    }
+
+    private sealed class FakeLLMClient : ILLMClient
+    {
+        public string ModelName => "fake";
+
+        public int MaxTokens => 4096;
+
+        public Task InitializeAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public Task<string> GenerateCompletionAsync(
+            string prompt,
+            float temperature = 0.7f,
+            int maxTokens = 1000,
+            CancellationToken cancellationToken = default) => Task.FromResult("fake completion");
+
+        public Task<string> GenerateChatCompletionAsync(
+            IEnumerable<ChatMessage> messages,
+            float temperature = 0.7f,
+            int maxTokens = 1000,
+            CancellationToken cancellationToken = default) => Task.FromResult("fake chat completion");
+
+        public Task<float[]> GetEmbeddingsAsync(string text, CancellationToken cancellationToken = default)
+            => Task.FromResult(Array.Empty<float>());
+
+        public Task<float[][]> GetBatchEmbeddingsAsync(IEnumerable<string> texts, CancellationToken cancellationToken = default)
+            => Task.FromResult(Array.Empty<float[]>());
+
+        public void Dispose()
+        {
+        }
     }
 
     /// <summary>Tests that a valid constructor call succeeds.</summary>

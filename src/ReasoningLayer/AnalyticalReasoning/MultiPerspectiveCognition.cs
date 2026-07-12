@@ -1,8 +1,6 @@
 using System.Text;
 using System.Text.Json;
-using Azure;
-using Azure.AI.OpenAI;
-using OpenAI.Chat;
+using CognitiveMesh.Shared.Interfaces;
 
 namespace CognitiveMesh.ReasoningLayer.AnalyticalReasoning;
 
@@ -12,7 +10,7 @@ namespace CognitiveMesh.ReasoningLayer.AnalyticalReasoning;
 /// </summary>
 public class MultiPerspectiveCognition
 {
-    private readonly ChatClient _chatClient;
+    private readonly ILLMClient _llmClient;
     private readonly Dictionary<string, string> _perspectiveEndpoints;
     private readonly HttpClient _httpClient;
 
@@ -20,13 +18,10 @@ public class MultiPerspectiveCognition
     /// Initializes a new instance of the <see cref="MultiPerspectiveCognition"/> class.
     /// </summary>
     public MultiPerspectiveCognition(
-        string openAIEndpoint,
-        string openAIApiKey,
-        string completionDeployment,
+        ILLMClient llmClient,
         Dictionary<string, string> perspectiveEndpoints)
     {
-        var aoaiClient = new AzureOpenAIClient(new Uri(openAIEndpoint), new AzureKeyCredential(openAIApiKey));
-        _chatClient = aoaiClient.GetChatClient(completionDeployment);
+        _llmClient = llmClient ?? throw new ArgumentNullException(nameof(llmClient));
         _perspectiveEndpoints = perspectiveEndpoints;
         _httpClient = new HttpClient();
     }
@@ -87,21 +82,18 @@ public class MultiPerspectiveCognition
             // Use OpenAI with perspective-specific prompt
             var systemPrompt = GetSystemPromptForPerspective(perspective);
 
-            var completion = await _chatClient.CompleteChatAsync(
+            var analysis = await _llmClient.GenerateChatCompletionAsync(
                 [
-                    new SystemChatMessage(systemPrompt),
-                    new UserChatMessage(query)
+                    new ChatMessage("system", systemPrompt),
+                    new ChatMessage("user", query)
                 ],
-                new ChatCompletionOptions
-                {
-                    Temperature = 0.5f,
-                    MaxOutputTokenCount = 800
-                });
+                0.5f,
+                800);
 
             return new PerspectiveResult
             {
                 Perspective = perspective,
-                Analysis = completion.Value.Content[0].Text,
+                Analysis = analysis,
                 Confidence = 0.8 // Default confidence for OpenAI-generated perspectives
             };
         }
@@ -160,18 +152,13 @@ public class MultiPerspectiveCognition
 
         var userPrompt = $"Query: {query}\n\nPerspectives:\n{perspectivesText}\n\nPlease synthesize these perspectives into a coherent, integrated analysis.";
 
-        var completion = await _chatClient.CompleteChatAsync(
+        return await _llmClient.GenerateChatCompletionAsync(
             [
-                new SystemChatMessage(systemPrompt),
-                new UserChatMessage(userPrompt)
+                new ChatMessage("system", systemPrompt),
+                new ChatMessage("user", userPrompt)
             ],
-            new ChatCompletionOptions
-            {
-                Temperature = 0.3f,
-                MaxOutputTokenCount = 1000
-            });
-
-        return completion.Value.Content[0].Text;
+            0.3f,
+            1000);
     }
 }
 

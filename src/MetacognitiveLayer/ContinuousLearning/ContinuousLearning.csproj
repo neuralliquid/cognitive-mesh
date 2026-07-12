@@ -16,6 +16,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\Shared\CognitiveMesh.Shared.csproj" />
     <ProjectReference Include="..\..\FoundationLayer\EnterpriseConnectors\EnterpriseConnectors.csproj" />
   </ItemGroup>
 
