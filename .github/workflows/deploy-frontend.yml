@@ -62,7 +62,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.3
         with:
           fetch-depth: 0
 
@@ -78,10 +78,10 @@ jobs:
           echo "Image tag: ${TAG}"
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@v4.2.0
 
       - name: Log in to Azure Container Registry
-        uses: docker/login-action@v4
+        uses: docker/login-action@v4.4.0
         with:
           registry: ${{ secrets.ACR_LOGIN_SERVER }}
           username: ${{ secrets.ACR_USERNAME }}
@@ -89,7 +89,7 @@ jobs:
 
       - name: Build and push
         id: push
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@v7.3.0
         with:
           context: src/UILayer/web
           file: src/UILayer/web/Dockerfile
@@ -119,21 +119,21 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.3
 
       - name: Azure Login
-        uses: azure/login@v2
+        uses: azure/login@v2.3.0
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Set AKS context
-        uses: azure/aks-set-context@v4
+        uses: azure/aks-set-context@v4.0.3
         with:
           cluster-name: ${{ secrets.AKS_CLUSTER_NAME }}
           resource-group: ${{ secrets.AKS_RESOURCE_GROUP }}
 
       - name: Install Kustomize
-        uses: imranismail/setup-kustomize@v2
+        uses: imranismail/setup-kustomize@v2.1.0
         with:
           kustomize-version: ${{ env.KUSTOMIZE_VERSION }}
 
@@ -183,21 +183,21 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.3
 
       - name: Azure Login
-        uses: azure/login@v2
+        uses: azure/login@v2.3.0
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Set AKS context
-        uses: azure/aks-set-context@v4
+        uses: azure/aks-set-context@v4.0.3
         with:
           cluster-name: ${{ secrets.AKS_CLUSTER_NAME }}
           resource-group: ${{ secrets.AKS_RESOURCE_GROUP }}
 
       - name: Install Kustomize
-        uses: imranismail/setup-kustomize@v2
+        uses: imranismail/setup-kustomize@v2.1.0
         with:
           kustomize-version: ${{ env.KUSTOMIZE_VERSION }}
 
@@ -243,7 +243,7 @@ jobs:
 
     steps:
       - name: Send failure notification
-        uses: rtCamp/action-slack-notify@v2
+        uses: rtCamp/action-slack-notify@v2.4.0
         if: env.SLACK_WEBHOOK != ''
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
