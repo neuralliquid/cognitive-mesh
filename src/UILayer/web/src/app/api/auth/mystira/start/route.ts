@@ -19,8 +19,18 @@ function sanitizeReturnTo(value: string | null): string {
   return normalized
 }
 
+function getPublicOrigin(request: NextRequest): string {
+  const forwardedHost = request.headers.get("x-forwarded-host")
+  const forwardedProto = request.headers.get("x-forwarded-proto")
+  const host = forwardedHost ?? request.headers.get("host")
+  if (host) {
+    return `${forwardedProto ?? request.nextUrl.protocol.replace(":", "")}://${host}`
+  }
+  return request.nextUrl.origin
+}
+
 export async function GET(request: NextRequest) {
-  const origin = request.nextUrl.origin
+  const origin = getPublicOrigin(request)
   const redirectUri = `${origin}/api/auth/callback/mystira`
   const returnTo = sanitizeReturnTo(request.nextUrl.searchParams.get("returnTo"))
   const loginHint = request.nextUrl.searchParams.get("login_hint")
@@ -43,7 +53,7 @@ export async function GET(request: NextRequest) {
   }
 
   const response = NextResponse.redirect(authorizeUrl)
-  const secure = request.nextUrl.protocol === "https:"
+  const secure = new URL(origin).protocol === "https:"
   response.cookies.set("cm_mystira_state", state, { httpOnly: true, sameSite: "lax", secure, path: "/", maxAge: 600 })
   response.cookies.set("cm_mystira_verifier", verifier, { httpOnly: true, sameSite: "lax", secure, path: "/", maxAge: 600 })
   response.cookies.set("cm_mystira_return_to", returnTo, { httpOnly: true, sameSite: "lax", secure, path: "/", maxAge: 600 })
