@@ -1,4 +1,4 @@
-using OpenAI.Chat;
+using CognitiveMesh.Shared.Interfaces;
 
 namespace CognitiveMesh.ReasoningLayer.EthicalReasoning;
 
@@ -8,16 +8,15 @@ namespace CognitiveMesh.ReasoningLayer.EthicalReasoning;
 /// </summary>
 public class EthicalReasoner
 {
-    private readonly ChatClient _chatClient;
+    private readonly ILLMClient _llmClient;
     private readonly ILogger<EthicalReasoner> _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="EthicalReasoner"/> class.
     /// </summary>
-    public EthicalReasoner(string openAIEndpoint, string openAIApiKey, string completionDeployment, ILogger<EthicalReasoner> logger)
+    public EthicalReasoner(ILLMClient llmClient, ILogger<EthicalReasoner> logger)
     {
-        var aoaiClient = new AzureOpenAIClient(new Uri(openAIEndpoint), new AzureKeyCredential(openAIApiKey));
-        _chatClient = aoaiClient.GetChatClient(completionDeployment);
+        _llmClient = llmClient ?? throw new ArgumentNullException(nameof(llmClient));
         _logger = logger;
     }
 
@@ -32,18 +31,11 @@ public class EthicalReasoner
 
             var messages = new List<ChatMessage>
             {
-                new SystemChatMessage(systemPrompt),
-                new UserChatMessage(input)
+                new("system", systemPrompt),
+                new("user", input)
             };
 
-            var options = new ChatCompletionOptions
-            {
-                Temperature = 0.3f,
-                MaxOutputTokenCount = 800
-            };
-
-            var completion = await _chatClient.CompleteChatAsync(messages, options);
-            return completion.Value.Content[0].Text;
+            return await _llmClient.GenerateChatCompletionAsync(messages, 0.3f, 800);
         }
         catch (Exception ex)
         {

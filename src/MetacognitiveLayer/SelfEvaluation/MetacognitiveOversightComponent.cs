@@ -1,12 +1,10 @@
 using System.Text;
 using System.Text.RegularExpressions;
-using Azure;
-using Azure.AI.OpenAI;
+using CognitiveMesh.Shared.Interfaces;
 using CognitiveMesh.ReasoningLayer.AnalyticalReasoning;
 using Microsoft.ApplicationInsights;
 using Microsoft.ApplicationInsights.DataContracts;
 using Microsoft.Extensions.Logging;
-using OpenAI.Chat;
 
 namespace MetacognitiveLayer.SelfEvaluation;
 
@@ -17,27 +15,22 @@ namespace MetacognitiveLayer.SelfEvaluation;
 /// </summary>
 public class MetacognitiveOversightComponent
 {
-    private readonly ChatClient _chatClient;
+    private readonly ILLMClient _llmClient;
     private readonly TelemetryClient _telemetryClient;
     private readonly ILogger<MetacognitiveOversightComponent> _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MetacognitiveOversightComponent"/> class.
     /// </summary>
-    /// <param name="openAIEndpoint">The Azure OpenAI endpoint URI.</param>
-    /// <param name="openAIApiKey">The Azure OpenAI API key.</param>
-    /// <param name="completionDeployment">The deployment name for chat completions.</param>
+    /// <param name="llmClient">The LLM client for routed evaluation calls.</param>
     /// <param name="telemetryClient">The Application Insights telemetry client.</param>
     /// <param name="logger">The logger instance.</param>
     public MetacognitiveOversightComponent(
-        string openAIEndpoint,
-        string openAIApiKey,
-        string completionDeployment,
+        ILLMClient llmClient,
         TelemetryClient telemetryClient,
         ILogger<MetacognitiveOversightComponent> logger)
     {
-        var aoaiClient = new AzureOpenAIClient(new Uri(openAIEndpoint), new AzureKeyCredential(openAIApiKey));
-        _chatClient = aoaiClient.GetChatClient(completionDeployment);
+        _llmClient = llmClient ?? throw new ArgumentNullException(nameof(llmClient));
         _telemetryClient = telemetryClient;
         _logger = logger;
     }
@@ -142,20 +135,7 @@ public class MetacognitiveOversightComponent
                          "Provide a score from 0.0 (completely inaccurate) to 1.0 (completely accurate). " +
                          "Explain your reasoning and identify any factual errors or unsupported claims.";
 
-        var messages = new List<ChatMessage>
-        {
-            new SystemChatMessage(systemPrompt),
-            new UserChatMessage(userPrompt)
-        };
-
-        var chatCompletionOptions = new ChatCompletionOptions
-        {
-            Temperature = 0.1f,
-            MaxOutputTokenCount = 1000
-        };
-
-        var completionResponse = await _chatClient.CompleteChatAsync(messages, chatCompletionOptions);
-        var evaluationText = completionResponse.Value.Content[0].Text;
+        var evaluationText = await CompleteEvaluationAsync(systemPrompt, userPrompt, 0.1f, 1000);
 
         // Extract score and explanation
         var score = ExtractScore(evaluationText);
@@ -196,20 +176,7 @@ public class MetacognitiveOversightComponent
                          "Provide a score from 0.0 (poor reasoning) to 1.0 (excellent reasoning). " +
                          "Consider logical coherence, consideration of multiple perspectives, and quality of inferences.";
 
-        var messages = new List<ChatMessage>
-        {
-            new SystemChatMessage(systemPrompt),
-            new UserChatMessage(userPrompt)
-        };
-
-        var chatCompletionOptions = new ChatCompletionOptions
-        {
-            Temperature = 0.1f,
-            MaxOutputTokenCount = 1000
-        };
-
-        var completionResponse = await _chatClient.CompleteChatAsync(messages, chatCompletionOptions);
-        var evaluationText = completionResponse.Value.Content[0].Text;
+        var evaluationText = await CompleteEvaluationAsync(systemPrompt, userPrompt, 0.1f, 1000);
 
         // Extract score and explanation
         var score = ExtractScore(evaluationText);
@@ -234,20 +201,7 @@ public class MetacognitiveOversightComponent
                          "Provide a score from 0.0 (completely irrelevant) to 1.0 (perfectly relevant). " +
                          "Explain your reasoning and identify any irrelevant content.";
 
-        var messages = new List<ChatMessage>
-        {
-            new SystemChatMessage(systemPrompt),
-            new UserChatMessage(userPrompt)
-        };
-
-        var chatCompletionOptions = new ChatCompletionOptions
-        {
-            Temperature = 0.1f,
-            MaxOutputTokenCount = 800
-        };
-
-        var completionResponse = await _chatClient.CompleteChatAsync(messages, chatCompletionOptions);
-        var evaluationText = completionResponse.Value.Content[0].Text;
+        var evaluationText = await CompleteEvaluationAsync(systemPrompt, userPrompt, 0.1f, 800);
 
         // Extract score and explanation
         var score = ExtractScore(evaluationText);
@@ -272,20 +226,7 @@ public class MetacognitiveOversightComponent
                          "Provide a score from 0.0 (very incomplete) to 1.0 (fully complete). " +
                          "Explain your reasoning and identify any missing elements.";
 
-        var messages = new List<ChatMessage>
-        {
-            new SystemChatMessage(systemPrompt),
-            new UserChatMessage(userPrompt)
-        };
-
-        var chatCompletionOptions = new ChatCompletionOptions
-        {
-            Temperature = 0.1f,
-            MaxOutputTokenCount = 800
-        };
-
-        var completionResponse = await _chatClient.CompleteChatAsync(messages, chatCompletionOptions);
-        var evaluationText = completionResponse.Value.Content[0].Text;
+        var evaluationText = await CompleteEvaluationAsync(systemPrompt, userPrompt, 0.1f, 800);
 
         // Extract score and explanation
         var score = ExtractScore(evaluationText);
@@ -333,20 +274,7 @@ public class MetacognitiveOversightComponent
                          "Suggest 3-5 specific improvements that would address the weaknesses identified in the evaluations. " +
                          "Format each suggestion as a separate point.";
 
-        var messages = new List<ChatMessage>
-        {
-            new SystemChatMessage(systemPrompt),
-            new UserChatMessage(userPrompt)
-        };
-
-        var chatCompletionOptions = new ChatCompletionOptions
-        {
-            Temperature = 0.3f,
-            MaxOutputTokenCount = 1000
-        };
-
-        var completionResponse = await _chatClient.CompleteChatAsync(messages, chatCompletionOptions);
-        var suggestionsText = completionResponse.Value.Content[0].Text;
+        var suggestionsText = await CompleteEvaluationAsync(systemPrompt, userPrompt, 0.3f, 1000);
 
         // Parse suggestions
         return ParseSuggestions(suggestionsText);
@@ -469,21 +397,24 @@ public class MetacognitiveOversightComponent
                          $"Perspective Analyses:\n{perspectivesText}\n\n" +
                          "Generate an improved response that addresses the suggestions while maintaining the core information.";
 
-        var messages = new List<ChatMessage>
-        {
-            new SystemChatMessage(systemPrompt),
-            new UserChatMessage(userPrompt)
-        };
+        return await CompleteEvaluationAsync(systemPrompt, userPrompt, 0.3f, 1500, cancellationToken);
+    }
 
-        var chatCompletionOptions = new ChatCompletionOptions
-        {
-            Temperature = 0.3f,
-            MaxOutputTokenCount = 1500
-        };
-
-        var completionResponse = await _chatClient.CompleteChatAsync(messages, chatCompletionOptions);
-
-        return completionResponse.Value.Content[0].Text;
+    private Task<string> CompleteEvaluationAsync(
+        string systemPrompt,
+        string userPrompt,
+        float temperature,
+        int maxTokens,
+        CancellationToken cancellationToken = default)
+    {
+        return _llmClient.GenerateChatCompletionAsync(
+            [
+                new ChatMessage("system", systemPrompt),
+                new ChatMessage("user", userPrompt)
+            ],
+            temperature,
+            maxTokens,
+            cancellationToken);
     }
 }
 

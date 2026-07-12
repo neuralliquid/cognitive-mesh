@@ -15,6 +15,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\Shared\CognitiveMesh.Shared.csproj" />
     <ProjectReference Include="..\..\ReasoningLayer\AnalyticalReasoning\AnalyticalReasoning.csproj" />
   </ItemGroup>
 
