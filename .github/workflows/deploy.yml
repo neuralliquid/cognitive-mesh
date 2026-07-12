@@ -45,8 +45,8 @@ env:
   ACR_NAME: myssharedacr
   ACR_LOGIN_SERVER: myssharedacr.azurecr.io
   IMAGE_NAME: cognitive-mesh-api
-  PRODUCTION_URL: https://cognitivemesh.neuralliquid.ai
-  SLOT_URL: https://staging.cognitivemesh.neuralliquid.ai
+  PRODUCTION_URL: https://cognitive-mesh-api-prod.azurewebsites.net
+  SLOT_URL: https://cognitive-mesh-api-prod-staging.azurewebsites.net
 
 jobs:
   build-and-push:
@@ -112,7 +112,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: production
-      url: https://staging.cognitivemesh.neuralliquid.ai
+      url: https://cognitive-mesh-api-prod-staging.azurewebsites.net
 
     steps:
       - name: Azure login
@@ -163,7 +163,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: production
-      url: https://cognitivemesh.neuralliquid.ai
+      url: https://cognitive-mesh-api-prod.azurewebsites.net
 
     steps:
       - name: Azure login
