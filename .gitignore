@@ -63,6 +63,8 @@ nunit-*.xml
 
 # Terraform local working directories
 **/.terraform/
+**/.terragrunt-cache/
+**/.terraform.lock.hcl
 
 # Test output files
 test_*.txt
