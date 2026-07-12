@@ -20,6 +20,7 @@ import {
   TrendingUp,
   Activity,
   Layers,
+  PanelTop,
   ChevronLeft,
   ChevronRight,
   type LucideIcon,
@@ -40,6 +41,7 @@ const iconMap: Record<string, LucideIcon> = {
   TrendingUp,
   Activity,
   Layers,
+  PanelTop,
 }
 
 export function Sidebar() {
