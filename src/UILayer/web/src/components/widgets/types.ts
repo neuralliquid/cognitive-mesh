@@ -225,3 +225,92 @@ export interface CognitiveDebtAssessment {
   recommendations: string[];
   assessedAt: string;
 }
+
+// ─────────────────────────────── Convener ──────────────────────────────────
+
+export interface ChampionSummary {
+  userId: string;
+  influenceScore: number;
+  skills: string[];
+  interactionCount: number;
+  lastActiveDate: string;
+}
+
+export interface DiscoverChampionsResponse {
+  champions: ChampionSummary[];
+  totalEvaluated: number;
+}
+
+export interface EngagementMetrics {
+  totalMessages: number;
+  activeUsers: number;
+  totalReactions: number;
+  engagementTrend: string;
+}
+
+export interface SentimentMetrics {
+  averageSentiment: number;
+  positiveRatio: number;
+  negativeRatio: number;
+  neutralRatio: number;
+}
+
+export interface PsychologicalSafetyMetrics {
+  safetyScore: number;
+  riskLevel: string;
+}
+
+export interface CommunityPulseResponse {
+  channelId: string;
+  startDate: string;
+  endDate: string;
+  engagement?: EngagementMetrics | null;
+  sentiment?: SentimentMetrics | null;
+  psychologicalSafety?: PsychologicalSafetyMetrics | null;
+}
+
+export interface LearningCatalystRequest {
+  focusAreas?: string[];
+  maxRecommendations?: number;
+}
+
+export interface LearningRecommendation {
+  title: string;
+  description: string;
+  activityType: string | number;
+  relevanceScore: number;
+  targetSkill: string;
+  estimatedMinutes: number;
+  contributorUserId?: string | null;
+}
+
+export interface SkillGap {
+  skillName: string;
+  currentLevel: number;
+  targetLevel: number;
+  priority: string;
+}
+
+export interface LearningCatalystResponse {
+  userId: string;
+  recommendations: LearningRecommendation[];
+  identifiedGaps: SkillGap[];
+}
+
+export interface AdoptionEvent {
+  adopterUserId: string;
+  adoptedAt: string;
+  referredByUserId?: string | null;
+  adoptionContext?: string | null;
+}
+
+export interface InnovationSpreadResult {
+  ideaId: string;
+  originatorUserId: string;
+  proposedAt: string;
+  adoptionCount: number;
+  adoptionRatePercent: number;
+  viralityScore: number;
+  adoptionLineage: AdoptionEvent[];
+  phase: string | number;
+}
