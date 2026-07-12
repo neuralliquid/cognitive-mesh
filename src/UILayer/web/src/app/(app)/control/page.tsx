@@ -1,154 +1,548 @@
 "use client"
 
 import Link from "next/link"
-import { useCallback, useState } from "react"
-import DashboardLayout from "@/components/DashboardLayout"
-import Nexus from "@/components/Nexus"
-import { DragDropProvider } from "@/contexts/DragDropContext"
-import { ArrowLeft, Maximize2, Move, Radio, RotateCcw, SlidersHorizontal } from "lucide-react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import {
+  ArrowLeft,
+  BarChart3,
+  Bot,
+  Brain,
+  GripVertical,
+  LayoutDashboard,
+  Maximize2,
+  Mic,
+  Minimize2,
+  Move,
+  Radio,
+  RotateCcw,
+  Send,
+  Shield,
+  SlidersHorizontal,
+  Sparkles,
+  Square,
+  Workflow,
+} from "lucide-react"
+import type { LucideIcon } from "lucide-react"
 
-type DockHandleStyle = "grip" | "anchor" | "titlebar" | "ring" | "invisible"
+type PanelId = "command" | "metrics" | "main" | "tools" | "activity"
+type PanelMode = "docked" | "floating"
+type WidgetId = "agents" | "reasoning" | "analytics" | "security" | "resources" | "activity"
+type CommandContext = "agents" | "reasoning" | "analytics" | "security"
 
-const handleStyles: { value: DockHandleStyle; label: string }[] = [
-  { value: "grip", label: "Grip" },
-  { value: "anchor", label: "Anchor" },
-  { value: "titlebar", label: "Titlebar" },
-  { value: "ring", label: "Ring" },
-  { value: "invisible", label: "Clean" },
+interface PanelState {
+  id: PanelId
+  title: string
+  mode: PanelMode
+  x: number
+  y: number
+  width: number
+  height: number
+  widgets: WidgetId[]
+}
+
+interface WidgetDefinition {
+  id: WidgetId
+  label: string
+  description: string
+  icon: LucideIcon
+  color: string
+  defaultPanel: PanelId
+}
+
+const STORAGE_KEY = "cm_control_layout_v1"
+
+const widgets: WidgetDefinition[] = [
+  {
+    id: "agents",
+    label: "Agents",
+    description: "Agent readiness, tasks, and orchestration state.",
+    icon: Bot,
+    color: "text-sky-300",
+    defaultPanel: "command",
+  },
+  {
+    id: "reasoning",
+    label: "Reasoning",
+    description: "Reasoning pipeline, confidence, and active context.",
+    icon: Brain,
+    color: "text-cyan-300",
+    defaultPanel: "command",
+  },
+  {
+    id: "analytics",
+    label: "Analytics",
+    description: "Mesh metrics, throughput, and signal quality.",
+    icon: BarChart3,
+    color: "text-purple-300",
+    defaultPanel: "metrics",
+  },
+  {
+    id: "security",
+    label: "Security",
+    description: "Policy posture, guardrails, and active controls.",
+    icon: Shield,
+    color: "text-emerald-300",
+    defaultPanel: "metrics",
+  },
+  {
+    id: "resources",
+    label: "Resources",
+    description: "Compute pressure, memory, model routing, and queues.",
+    icon: Workflow,
+    color: "text-amber-300",
+    defaultPanel: "main",
+  },
+  {
+    id: "activity",
+    label: "Activity",
+    description: "Recent command, diagnostic, and telemetry events.",
+    icon: Radio,
+    color: "text-rose-300",
+    defaultPanel: "activity",
+  },
 ]
 
-export default function ControlPage() {
-  const [dockHandleStyle, setDockHandleStyle] = useState<DockHandleStyle>("grip")
-  const [commandLog, setCommandLog] = useState<string[]>([
-    "Control interface online",
-    "Command Nexus linked to mesh dashboard",
-  ])
-  const [voiceActive, setVoiceActive] = useState(false)
+const defaultPanels: PanelState[] = [
+  {
+    id: "command",
+    title: "Command Center",
+    mode: "docked",
+    x: 300,
+    y: 120,
+    width: 680,
+    height: 220,
+    widgets: ["agents", "reasoning"],
+  },
+  {
+    id: "metrics",
+    title: "Metrics Dashboard",
+    mode: "docked",
+    x: 280,
+    y: 370,
+    width: 780,
+    height: 220,
+    widgets: ["analytics", "security"],
+  },
+  {
+    id: "main",
+    title: "Main Modules",
+    mode: "docked",
+    x: 260,
+    y: 620,
+    width: 760,
+    height: 300,
+    widgets: ["resources"],
+  },
+  {
+    id: "tools",
+    title: "Sidebar Tools",
+    mode: "docked",
+    x: 1060,
+    y: 620,
+    width: 360,
+    height: 300,
+    widgets: [],
+  },
+  {
+    id: "activity",
+    title: "Activity & Monitoring",
+    mode: "docked",
+    x: 300,
+    y: 940,
+    width: 760,
+    height: 240,
+    widgets: ["activity"],
+  },
+]
 
-  const handlePromptSubmit = useCallback((prompt: string) => {
-    setCommandLog((current) => [`Executed: ${prompt}`, ...current].slice(0, 6))
-  }, [])
+function getWidget(id: WidgetId) {
+  return widgets.find((widget) => widget.id === id) ?? widgets[0]
+}
+
+function readStoredPanels(): PanelState[] {
+  if (typeof window === "undefined") return defaultPanels
+  try {
+    const stored = window.localStorage.getItem(STORAGE_KEY)
+    if (!stored) return defaultPanels
+    const parsed = JSON.parse(stored) as PanelState[]
+    const byId = new Map(parsed.map((panel) => [panel.id, panel]))
+    return defaultPanels.map((panel) => ({ ...panel, ...byId.get(panel.id) }))
+  } catch {
+    return defaultPanels
+  }
+}
+
+function WidgetCard({ id }: { id: WidgetId }) {
+  const widget = getWidget(id)
+  const Icon = widget.icon
 
   return (
-    <DragDropProvider>
-      <div className="min-h-screen overflow-hidden bg-slate-950 shadow-2xl shadow-cyan-950/30">
-        <div className="border-b border-white/10 bg-black/40 px-4 py-3 backdrop-blur-md">
-          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              <Link
-                href="/dashboard"
-                className="inline-flex w-fit items-center gap-2 rounded-md border border-cyan-500/20 bg-cyan-500/10 px-3 py-2 text-xs font-medium text-cyan-200 transition hover:bg-cyan-500/20 hover:text-white"
-              >
-                <ArrowLeft className="h-3.5 w-3.5" />
-                Back to Mesh
-              </Link>
-              <div>
-                <h1 className="text-lg font-semibold text-white">CogMesh Control</h1>
-                <p className="mt-1 text-xs text-slate-400">
-                  Immersive command surface for dockable controls, agent operations, and mesh inspection.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="flex items-center gap-1 rounded-md border border-white/10 bg-white/5 p-1">
-                {handleStyles.map((style) => (
-                  <button
-                    key={style.value}
-                    type="button"
-                    onClick={() => setDockHandleStyle(style.value)}
-                    className={`rounded px-2 py-1 text-xs transition ${
-                      dockHandleStyle === style.value
-                        ? "bg-cyan-500/20 text-cyan-300"
-                        : "text-slate-400 hover:bg-white/5 hover:text-white"
-                    }`}
-                    aria-pressed={dockHandleStyle === style.value}
-                  >
-                    {style.label}
-                  </button>
-                ))}
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setCommandLog(["Layout reset requested", ...commandLog].slice(0, 6))}
-                className="inline-flex items-center gap-2 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-xs text-slate-300 transition hover:bg-white/10 hover:text-white"
-              >
-                <RotateCcw className="h-3.5 w-3.5" />
-                Reset
-              </button>
-            </div>
-          </div>
+    <div className="rounded-md border border-white/10 bg-black/25 p-3">
+      <div className="flex items-center gap-2">
+        <Icon className={`h-4 w-4 ${widget.color}`} />
+        <h4 className="text-sm font-medium text-white">{widget.label}</h4>
+      </div>
+      <p className="mt-2 text-xs leading-5 text-slate-400">{widget.description}</p>
+      <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+        <div className="rounded border border-white/10 bg-white/5 p-2">
+          <p className="text-slate-500">State</p>
+          <p className="mt-1 text-cyan-300">Preview</p>
         </div>
-
-        <div className="grid gap-4 p-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
-          <div className="relative min-h-[calc(100vh-8rem)] overflow-auto rounded-lg border border-white/10 bg-slate-950/60 p-4">
-            <Nexus
-              mode="command"
-              isVoiceActive={voiceActive}
-              onVoiceToggle={() => setVoiceActive((active) => !active)}
-              onPromptSubmit={handlePromptSubmit}
-              enableAudio={false}
-            />
-
-            <div className="pointer-events-none absolute right-4 top-4 z-10 flex gap-2 text-xs text-cyan-300">
-              <span className="rounded border border-cyan-500/20 bg-cyan-500/10 px-2 py-1">command nexus</span>
-              <span className="rounded border border-purple-500/20 bg-purple-500/10 px-2 py-1">dock grid</span>
-            </div>
-
-            <DashboardLayout dockHandleStyle={dockHandleStyle} />
-          </div>
-
-          <aside className="space-y-4">
-            <div className="rounded-lg border border-white/10 bg-white/5 p-4">
-              <div className="mb-3 flex items-center gap-2 text-sm font-medium text-white">
-                <Radio className="h-4 w-4 text-cyan-300" />
-                Signals
-              </div>
-              <div className="grid grid-cols-2 gap-3 text-xs">
-                <div className="rounded border border-white/10 bg-black/20 p-3">
-                  <p className="text-slate-500">Mesh Link</p>
-                  <p className="mt-1 text-cyan-300">Active</p>
-                </div>
-                <div className="rounded border border-white/10 bg-black/20 p-3">
-                  <p className="text-slate-500">Voice</p>
-                  <p className={voiceActive ? "mt-1 text-emerald-300" : "mt-1 text-slate-300"}>
-                    {voiceActive ? "Listening" : "Standby"}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-lg border border-white/10 bg-white/5 p-4">
-              <div className="mb-3 flex items-center gap-2 text-sm font-medium text-white">
-                <SlidersHorizontal className="h-4 w-4 text-purple-300" />
-                Dock Controls
-              </div>
-              <div className="space-y-2 text-xs text-slate-400">
-                <div className="flex items-center gap-2">
-                  <Move className="h-3.5 w-3.5 text-slate-500" />
-                  Drag modules into available zones
-                </div>
-                <div className="flex items-center gap-2">
-                  <Maximize2 className="h-3.5 w-3.5 text-slate-500" />
-                  Resize panels from their controls
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-lg border border-white/10 bg-white/5 p-4">
-              <h2 className="mb-3 text-sm font-medium text-white">Command Log</h2>
-              <div className="space-y-2">
-                {commandLog.map((entry, index) => (
-                  <div key={`${entry}-${index}`} className="rounded border border-white/10 bg-black/20 px-3 py-2 text-xs text-slate-300">
-                    {entry}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </aside>
+        <div className="rounded border border-white/10 bg-white/5 p-2">
+          <p className="text-slate-500">Signal</p>
+          <p className="mt-1 text-emerald-300">Linked</p>
         </div>
       </div>
-    </DragDropProvider>
+    </div>
+  )
+}
+
+function ControlPanel({
+  panel,
+  children,
+  onFloat,
+  onDock,
+  onResize,
+  onMove,
+}: {
+  panel: PanelState
+  children: React.ReactNode
+  onFloat: () => void
+  onDock: () => void
+  onResize: (width: number, height: number) => void
+  onMove: (x: number, y: number) => void
+}) {
+  const dragOffsetRef = useRef({ x: 0, y: 0 })
+
+  const startMove = (event: React.MouseEvent) => {
+    if (panel.mode !== "floating") return
+    event.preventDefault()
+    dragOffsetRef.current = {
+      x: event.clientX - panel.x,
+      y: event.clientY - panel.y,
+    }
+
+    const handleMove = (moveEvent: MouseEvent) => {
+      onMove(moveEvent.clientX - dragOffsetRef.current.x, moveEvent.clientY - dragOffsetRef.current.y)
+    }
+
+    const handleUp = () => {
+      document.removeEventListener("mousemove", handleMove)
+      document.removeEventListener("mouseup", handleUp)
+    }
+
+    document.addEventListener("mousemove", handleMove)
+    document.addEventListener("mouseup", handleUp)
+  }
+
+  return (
+    <section
+      className={`rounded-lg border border-white/10 bg-slate-950/80 shadow-xl shadow-black/20 ${
+        panel.mode === "floating" ? "fixed z-30 backdrop-blur-md" : "relative"
+      }`}
+      style={
+        panel.mode === "floating"
+          ? { left: panel.x, top: panel.y, width: panel.width, height: panel.height }
+          : { minHeight: panel.height }
+      }
+    >
+      <div
+        className={`flex items-center justify-between border-b border-white/10 bg-white/[0.03] px-3 py-2 ${
+          panel.mode === "floating" ? "cursor-move" : ""
+        }`}
+        onMouseDown={startMove}
+      >
+        <div className="flex items-center gap-2">
+          <GripVertical className="h-3.5 w-3.5 text-slate-500" />
+          <Sparkles className="h-3.5 w-3.5 text-cyan-300" />
+          <h3 className="text-sm font-semibold text-slate-200">{panel.title}</h3>
+          <span className="rounded bg-slate-800 px-2 py-0.5 text-xs text-slate-400">{panel.widgets.length}</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation()
+              onResize(Math.max(320, panel.width - 120), Math.max(180, panel.height - 80))
+            }}
+            className="rounded p-1 text-slate-400 hover:bg-white/10 hover:text-cyan-300"
+            title="Shrink panel"
+          >
+            <Minimize2 className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation()
+              onResize(panel.width + 160, panel.height + 100)
+            }}
+            className="rounded p-1 text-slate-400 hover:bg-white/10 hover:text-cyan-300"
+            title="Expand panel"
+          >
+            <Maximize2 className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation()
+              panel.mode === "floating" ? onDock() : onFloat()
+            }}
+            className="rounded p-1 text-slate-400 hover:bg-white/10 hover:text-cyan-300"
+            title={panel.mode === "floating" ? "Dock panel" : "Float panel"}
+          >
+            {panel.mode === "floating" ? <LayoutDashboard className="h-3.5 w-3.5" /> : <Move className="h-3.5 w-3.5" />}
+          </button>
+        </div>
+      </div>
+      <div className="grid gap-3 p-3 sm:grid-cols-2 xl:grid-cols-3">{children}</div>
+    </section>
+  )
+}
+
+export default function ControlPage() {
+  const [panels, setPanels] = useState<PanelState[]>(defaultPanels)
+  const [commandText, setCommandText] = useState("")
+  const [commandContext, setCommandContext] = useState<CommandContext>("reasoning")
+  const [commandStatus, setCommandStatus] = useState<"idle" | "pending">("idle")
+  const [commandLog, setCommandLog] = useState<string[]>([
+    "Control interface online",
+    "Command Center linked to mesh dashboard",
+  ])
+
+  useEffect(() => {
+    setPanels(readStoredPanels())
+  }, [])
+
+  useEffect(() => {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(panels))
+  }, [panels])
+
+  const updatePanel = useCallback((id: PanelId, patch: Partial<PanelState>) => {
+    setPanels((current) => current.map((panel) => (panel.id === id ? { ...panel, ...patch } : panel)))
+  }, [])
+
+  const addWidget = useCallback((widgetId: WidgetId) => {
+    const widget = getWidget(widgetId)
+    setPanels((current) =>
+      current.map((panel) => {
+        if (panel.id !== widget.defaultPanel || panel.widgets.includes(widgetId)) return panel
+        return { ...panel, widgets: [...panel.widgets, widgetId] }
+      }),
+    )
+    setCommandLog((current) => [`Added ${widget.label} to ${widget.defaultPanel}`, ...current].slice(0, 6))
+  }, [])
+
+  const resetLayout = useCallback(() => {
+    setPanels(defaultPanels)
+    setCommandStatus("idle")
+    setCommandLog((current) => ["Layout reset to default", ...current].slice(0, 6))
+  }, [])
+
+  const submitCommand = useCallback(() => {
+    const text = commandText.trim()
+    if (!text) return
+    setCommandStatus("pending")
+    setCommandLog((current) => [`Pending ${commandContext}: ${text}`, ...current].slice(0, 6))
+    setCommandText("")
+  }, [commandContext, commandText])
+
+  const renderedPanels = useMemo(
+    () =>
+      panels.map((panel) => (
+        <ControlPanel
+          key={panel.id}
+          panel={panel}
+          onFloat={() => updatePanel(panel.id, { mode: "floating" })}
+          onDock={() => updatePanel(panel.id, { mode: "docked" })}
+          onMove={(x, y) => updatePanel(panel.id, { x: Math.max(8, x), y: Math.max(8, y) })}
+          onResize={(width, height) => updatePanel(panel.id, { width, height })}
+        >
+          {panel.widgets.length > 0 ? (
+            panel.widgets.map((widgetId) => <WidgetCard key={widgetId} id={widgetId} />)
+          ) : (
+            <div className="col-span-full flex min-h-28 items-center justify-center rounded border border-dashed border-slate-700 text-sm text-slate-500">
+              Add widgets from the library
+            </div>
+          )}
+        </ControlPanel>
+      )),
+    [panels, updatePanel],
+  )
+
+  const dockedPanels = renderedPanels.filter((_, index) => panels[index].mode === "docked")
+  const floatingPanels = renderedPanels.filter((_, index) => panels[index].mode === "floating")
+
+  return (
+    <div className="min-h-screen overflow-hidden bg-slate-950 shadow-2xl shadow-cyan-950/30">
+      <div className="border-b border-white/10 bg-black/40 px-4 py-3 backdrop-blur-md">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <Link
+              href="/dashboard"
+              className="inline-flex w-fit items-center gap-2 rounded-md border border-cyan-500/20 bg-cyan-500/10 px-3 py-2 text-xs font-medium text-cyan-200 transition hover:bg-cyan-500/20 hover:text-white"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Back to Mesh
+            </Link>
+            <div>
+              <h1 className="text-lg font-semibold text-white">Cognitive Mesh Command Center</h1>
+              <p className="mt-1 text-xs text-slate-400">
+                Fullscreen command surface for mesh operations, agents, signals, and diagnostics.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1 rounded-md border border-white/10 bg-white/5 p-1">
+              {(["docked", "floating"] as PanelMode[]).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setPanels((current) => current.map((panel) => ({ ...panel, mode })))}
+                  className="rounded px-2 py-1 text-xs text-slate-300 transition hover:bg-cyan-500/20 hover:text-cyan-200"
+                >
+                  {mode === "docked" ? "Dock all" : "Float all"}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={resetLayout}
+              className="inline-flex items-center gap-2 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-xs text-slate-300 transition hover:bg-white/10 hover:text-white"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              Reset Layout
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-4 p-4 xl:grid-cols-[minmax(0,1fr)_20rem]">
+        <div className="relative min-h-[calc(100vh-8rem)] overflow-auto rounded-lg border border-white/10 bg-slate-950/60 p-4">
+          <div className="mx-auto mb-6 max-w-2xl rounded-2xl border-2 border-cyan-500/30 bg-gradient-to-r from-slate-900/95 to-indigo-950/80 p-4 shadow-2xl shadow-cyan-950/30">
+            <div className="mb-3 flex flex-wrap gap-2">
+              {(["agents", "reasoning", "analytics", "security"] as CommandContext[]).map((context) => (
+                <button
+                  key={context}
+                  type="button"
+                  onClick={() => setCommandContext(context)}
+                  className={`rounded-md border px-2.5 py-1 text-xs capitalize transition ${
+                    commandContext === context
+                      ? "border-cyan-500/50 bg-cyan-500/15 text-cyan-200"
+                      : "border-white/10 bg-white/5 text-slate-400 hover:text-white"
+                  }`}
+                >
+                  {context}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={commandText}
+                onChange={(event) => setCommandText(event.target.value)}
+                onKeyDown={(event) => event.key === "Enter" && submitCommand()}
+                placeholder={`Enter ${commandContext} command...`}
+                className="min-w-0 flex-1 bg-transparent text-base text-white outline-none placeholder:text-slate-400"
+              />
+              <button
+                type="button"
+                disabled
+                className="rounded-lg bg-slate-700/50 p-2 text-slate-500"
+                title="Voice input is not connected yet"
+                aria-label="Voice input is not connected yet"
+              >
+                <Mic className="h-5 w-5" />
+              </button>
+              <button
+                type="button"
+                onClick={submitCommand}
+                disabled={!commandText.trim()}
+                className="rounded-lg bg-cyan-500/20 p-2 text-cyan-300 transition hover:bg-cyan-500/30 disabled:cursor-not-allowed disabled:opacity-50"
+                title="Queue command"
+              >
+                <Send className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="mt-3 flex items-center gap-2 text-xs text-slate-400">
+              <span className={commandStatus === "pending" ? "text-amber-300" : "text-emerald-300"}>
+                {commandStatus === "pending" ? "Pending execution" : "Ready"}
+              </span>
+              <span>Context: {commandContext}</span>
+            </div>
+          </div>
+
+          <div className="space-y-4">{dockedPanels}</div>
+          {floatingPanels}
+        </div>
+
+        <aside className="space-y-4">
+          <div className="rounded-lg border border-white/10 bg-white/5 p-4">
+            <div className="mb-3 flex items-center gap-2 text-sm font-medium text-white">
+              <SlidersHorizontal className="h-4 w-4 text-purple-300" />
+              Widget Library
+            </div>
+            <div className="space-y-2">
+              {widgets.map((widget) => {
+                const Icon = widget.icon
+                return (
+                  <button
+                    key={widget.id}
+                    type="button"
+                    onClick={() => addWidget(widget.id)}
+                    className="flex w-full items-start gap-3 rounded-md border border-white/10 bg-black/20 p-3 text-left transition hover:border-cyan-500/30 hover:bg-cyan-500/10"
+                  >
+                    <Icon className={`mt-0.5 h-4 w-4 ${widget.color}`} />
+                    <span>
+                      <span className="block text-sm text-white">{widget.label}</span>
+                      <span className="mt-1 block text-xs leading-4 text-slate-500">{widget.description}</span>
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-white/10 bg-white/5 p-4">
+            <div className="mb-3 flex items-center gap-2 text-sm font-medium text-white">
+              <Radio className="h-4 w-4 text-cyan-300" />
+              Signals
+            </div>
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div className="rounded border border-white/10 bg-black/20 p-3">
+                <p className="text-slate-500">Mesh Link</p>
+                <p className="mt-1 text-cyan-300">Active</p>
+              </div>
+              <div className="rounded border border-white/10 bg-black/20 p-3">
+                <p className="text-slate-500">Voice</p>
+                <p className="mt-1 text-slate-300">Not connected</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-white/10 bg-white/5 p-4">
+            <h2 className="mb-3 text-sm font-medium text-white">Command Log</h2>
+            <div className="space-y-2">
+              {commandLog.map((entry, index) => (
+                <div key={`${entry}-${index}`} className="rounded border border-white/10 bg-black/20 px-3 py-2 text-xs text-slate-300">
+                  {entry}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-white/10 bg-white/5 p-4">
+            <div className="mb-3 flex items-center gap-2 text-sm font-medium text-white">
+              <Square className="h-4 w-4 text-amber-300" />
+              Layout
+            </div>
+            <p className="text-xs leading-5 text-slate-400">
+              Add widgets from the library. Use each panel header to float, dock, expand, shrink, and drag floating panels.
+              Layout is saved in this browser.
+            </p>
+          </div>
+        </aside>
+      </div>
+    </div>
   )
 }
