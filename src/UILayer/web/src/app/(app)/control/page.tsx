@@ -14,7 +14,9 @@ import {
   Minimize2,
   Move,
   Radio,
+  RefreshCw,
   RotateCcw,
+  Scale,
   Send,
   Shield,
   SlidersHorizontal,
@@ -23,10 +25,12 @@ import {
   Workflow,
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
+import { getAdaptiveBalance } from "@/components/widgets/api"
+import type { BalanceResponse } from "@/components/widgets/types"
 
 type PanelId = "command" | "metrics" | "main" | "tools" | "activity"
 type PanelMode = "docked" | "floating"
-type WidgetId = "agents" | "reasoning" | "analytics" | "security" | "resources" | "activity"
+type WidgetId = "agents" | "reasoning" | "analytics" | "security" | "adaptiveBalance" | "resources" | "activity"
 type CommandContext = "agents" | "reasoning" | "analytics" | "security"
 
 interface PanelState {
@@ -85,6 +89,14 @@ const widgets: WidgetDefinition[] = [
     defaultPanel: "metrics",
   },
   {
+    id: "adaptiveBalance",
+    label: "Adaptive Balance",
+    description: "Live spectrum posture, confidence, and governance balance.",
+    icon: Scale,
+    color: "text-amber-300",
+    defaultPanel: "metrics",
+  },
+  {
     id: "resources",
     label: "Resources",
     description: "Compute pressure, memory, model routing, and queues.",
@@ -121,7 +133,7 @@ const defaultPanels: PanelState[] = [
     y: 370,
     width: 780,
     height: 220,
-    widgets: ["analytics", "security"],
+    widgets: ["analytics", "security", "adaptiveBalance"],
   },
   {
     id: "main",
@@ -172,7 +184,108 @@ function readStoredPanels(): PanelState[] {
   }
 }
 
+function formatPercent(value: number) {
+  return `${Math.round(value * 100)}%`
+}
+
+function AdaptiveBalanceControlWidget() {
+  const [balance, setBalance] = useState<BalanceResponse | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const refresh = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      setBalance(await getAdaptiveBalance())
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Adaptive Balance data failed to load.")
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void refresh()
+  }, [refresh])
+
+  return (
+    <div className="rounded-md border border-amber-400/20 bg-amber-400/[0.04] p-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Scale className="h-4 w-4 text-amber-300" />
+          <div>
+            <h4 className="text-sm font-medium text-white">Adaptive Balance</h4>
+            <p className="mt-0.5 text-xs text-slate-500">Live governance spectrum</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={refresh}
+          disabled={loading}
+          className="rounded p-1 text-slate-400 transition hover:bg-white/10 hover:text-amber-200 disabled:opacity-50"
+          title="Refresh Adaptive Balance"
+        >
+          <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+        </button>
+      </div>
+
+      {loading && (
+        <div className="mt-4 space-y-2" aria-busy="true" aria-label="Loading Adaptive Balance">
+          <div className="h-3 w-28 animate-pulse rounded bg-white/10" />
+          <div className="h-2 animate-pulse rounded bg-white/10" />
+          <div className="h-2 w-4/5 animate-pulse rounded bg-white/10" />
+        </div>
+      )}
+
+      {!loading && error && (
+        <div className="mt-3 rounded border border-red-400/20 bg-red-500/10 p-2 text-xs text-red-200" role="alert">
+          {error}
+        </div>
+      )}
+
+      {!loading && balance && (
+        <div className="mt-3 space-y-3">
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div className="rounded border border-white/10 bg-black/20 p-2">
+              <p className="text-slate-500">Confidence</p>
+              <p className="mt-1 text-amber-200">{formatPercent(balance.overallConfidence)}</p>
+            </div>
+            <div className="rounded border border-white/10 bg-black/20 p-2">
+              <p className="text-slate-500">Dimensions</p>
+              <p className="mt-1 text-cyan-200">{balance.dimensions.length}</p>
+            </div>
+          </div>
+          <div className="space-y-2">
+            {balance.dimensions.slice(0, 5).map((dimension) => (
+              <div key={dimension.dimension}>
+                <div className="mb-1 flex items-center justify-between gap-2 text-xs">
+                  <span className="truncate text-slate-300">{dimension.dimension}</span>
+                  <span className="text-slate-500">{formatPercent(dimension.value)}</span>
+                </div>
+                <div className="h-1.5 overflow-hidden rounded bg-slate-800">
+                  <div
+                    className="h-full rounded bg-amber-300"
+                    style={{ width: `${Math.max(0, Math.min(100, dimension.value * 100))}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="text-[11px] text-slate-500">
+            Generated {new Date(balance.generatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function WidgetCard({ id }: { id: WidgetId }) {
+  if (id === "adaptiveBalance") {
+    return <AdaptiveBalanceControlWidget />
+  }
+
   const widget = getWidget(id)
   const Icon = widget.icon
 

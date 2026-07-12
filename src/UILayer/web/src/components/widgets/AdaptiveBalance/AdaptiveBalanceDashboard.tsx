@@ -29,23 +29,26 @@ export default function AdaptiveBalanceDashboard() {
     setLoading(true);
     setError(null);
     try {
-      const [bal, ref] = await Promise.all([
+      const [balanceResult, reflexionResult] = await Promise.allSettled([
         getAdaptiveBalance(),
         getReflexionStatus(),
       ]);
-      setBalance(bal);
-      setReflexion(ref);
-      // Select first dimension by default
-      if (bal.dimensions.length > 0 && !selectedDim) {
-        setSelectedDim(bal.dimensions[0].dimension);
+
+      if (balanceResult.status === 'rejected') {
+        throw balanceResult.reason;
       }
+
+      const bal = balanceResult.value;
+      setBalance(bal);
+      setReflexion(reflexionResult.status === 'fulfilled' ? reflexionResult.value : null);
+      setSelectedDim((current) => current ?? bal.dimensions[0]?.dimension ?? null);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to load adaptive balance data.';
       setError(msg);
     } finally {
       setLoading(false);
     }
-  }, [selectedDim]);
+  }, []);
 
   // Fetch history when dimension changes
   useEffect(() => {
