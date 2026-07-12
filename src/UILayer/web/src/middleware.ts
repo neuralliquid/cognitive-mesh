@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 
-const PUBLIC_PATHS = ["/login", "/forbidden"]
+const PUBLIC_PATHS = ["/login", "/authentication/magic-verify", "/forbidden"]
 
 function isJwtExpired(token: string): boolean {
   try {

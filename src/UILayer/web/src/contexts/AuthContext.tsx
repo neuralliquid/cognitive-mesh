@@ -3,7 +3,9 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react"
 import { setAuthToken, clearAuthToken } from "@/lib/api/client"
 import {
+  consumeMystiraMagicLink,
   completeMystiraRedirect,
+  requestMystiraMagicLink,
   signInWithMystira,
   signOutOfMystira,
 } from "@/lib/auth/mystiraIdentity"
@@ -25,6 +27,8 @@ interface AuthState {
 interface AuthContextValue extends AuthState {
   login: (email: string, password: string) => Promise<void>
   loginWithMystira: (returnTo: string) => Promise<void>
+  requestMagicLink: (email: string) => Promise<void>
+  completeMagicLink: (token: string) => Promise<void>
   logout: () => void
   refreshToken: () => Promise<boolean>
 }
@@ -133,6 +137,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await signInWithMystira(returnTo)
   }, [])
 
+  const requestMagicLink = useCallback(async (email: string) => {
+    const result = await requestMystiraMagicLink(email)
+    const status = result.status?.toLowerCase()
+    if (status && !["emailsent", "pending"].includes(status)) {
+      throw new Error(result.message ?? "Unable to send magic link")
+    }
+  }, [])
+
+  const completeMagicLink = useCallback(async (token: string) => {
+    const result = await consumeMystiraMagicLink(token)
+    if (!result.accessToken) {
+      throw new Error(result.message ?? "Unable to complete magic-link sign-in")
+    }
+
+    if (result.refreshToken) {
+      localStorage.setItem(REFRESH_TOKEN_KEY, result.refreshToken)
+    }
+
+    if (!applyToken(result.accessToken)) {
+      throw new Error("Invalid token received")
+    }
+  }, [applyToken])
+
   const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY)
     localStorage.removeItem(REFRESH_TOKEN_KEY)
@@ -190,8 +217,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [state.isAuthenticated, state.user, refreshToken, logout])
 
   const value = useMemo<AuthContextValue>(
-    () => ({ ...state, login, loginWithMystira, logout, refreshToken }),
-    [state, login, loginWithMystira, logout, refreshToken],
+    () => ({ ...state, login, loginWithMystira, requestMagicLink, completeMagicLink, logout, refreshToken }),
+    [state, login, loginWithMystira, requestMagicLink, completeMagicLink, logout, refreshToken],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
