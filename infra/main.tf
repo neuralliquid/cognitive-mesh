@@ -172,18 +172,20 @@ module "webapps" {
   count  = var.enable_webapps ? 1 : 0
   source = "./modules/webapp-container"
 
-  project_name                   = var.project_name
-  environment                    = var.environment
-  location                       = var.location
-  resource_group_name            = azurerm_resource_group.this.name
-  shared_acr_name                = var.shared_acr_name
-  shared_acr_resource_group_name = var.shared_acr_resource_group_name
-  app_service_plan_sku           = var.webapp_service_plan_sku
-  api_image_name                 = var.api_container_image
-  frontend_image_name            = var.frontend_container_image
-  api_base_url                   = var.api_public_base_url
-  api_allowed_origins            = var.api_allowed_origins
-  common_tags                    = local.tags
+  project_name                    = var.project_name
+  environment                     = var.environment
+  location                        = var.location
+  resource_group_name             = azurerm_resource_group.this.name
+  shared_acr_name                 = var.shared_acr_name
+  shared_acr_resource_group_name  = var.shared_acr_resource_group_name
+  app_service_plan_sku            = var.webapp_service_plan_sku
+  api_image_name                  = var.api_container_image
+  frontend_image_name             = var.frontend_container_image
+  api_base_url                    = var.api_public_base_url
+  api_allowed_origins             = var.api_allowed_origins
+  frontend_mystira_auth_client_id = var.frontend_mystira_auth_client_id
+  frontend_mystira_tenant_id      = var.frontend_mystira_tenant_id
+  common_tags                     = local.tags
 }
 
 # ---------- Store secrets in Key Vault ----------

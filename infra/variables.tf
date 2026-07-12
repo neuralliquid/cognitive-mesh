@@ -267,6 +267,18 @@ variable "api_allowed_origins" {
   default     = []
 }
 
+variable "frontend_mystira_auth_client_id" {
+  description = "Public Entra application client ID used by the frontend for Mystira identity login."
+  type        = string
+  default     = ""
+}
+
+variable "frontend_mystira_tenant_id" {
+  description = "Mystira Entra tenant ID used by the frontend for identity login."
+  type        = string
+  default     = ""
+}
+
 # ---------- Networking ----------
 
 variable "vnet_address_space" {

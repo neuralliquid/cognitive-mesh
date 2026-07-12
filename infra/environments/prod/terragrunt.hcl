@@ -30,10 +30,12 @@ inputs = {
   shared_acr_name                = "myssharedacr"
   shared_acr_resource_group_name = "mys-global-shared-rg"
 
-  webapp_service_plan_sku  = "S1"
-  api_container_image      = "cognitive-mesh-api:latest"
-  frontend_container_image = "cognitive-mesh-frontend:latest"
-  api_public_base_url      = "https://api.cognitivemesh.neuralliquid.ai"
+  webapp_service_plan_sku         = "S1"
+  api_container_image             = "cognitive-mesh-api:latest"
+  frontend_container_image        = "cognitive-mesh-frontend:latest"
+  api_public_base_url             = "https://api.cognitivemesh.neuralliquid.ai"
+  frontend_mystira_auth_client_id = "d8182e32-4dda-4fc9-83bf-b5d517bc9528"
+  frontend_mystira_tenant_id      = "9530cd32-9e33-47f0-9247-ed964730b580"
   api_allowed_origins = [
     "https://cognitive-mesh-frontend-prod.azurewebsites.net",
     "https://cognitive-mesh-frontend-prod-staging.azurewebsites.net",

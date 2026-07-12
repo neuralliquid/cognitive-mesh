@@ -115,6 +115,8 @@ resource "azurerm_linux_web_app" "frontend" {
 
   app_settings = {
     NEXT_PUBLIC_API_BASE_URL            = var.api_base_url
+    NEXT_PUBLIC_MYSTIRA_AUTH_CLIENT_ID  = var.frontend_mystira_auth_client_id
+    NEXT_PUBLIC_MYSTIRA_TENANT_ID       = var.frontend_mystira_tenant_id
     NODE_ENV                            = "production"
     WEBSITES_ENABLE_APP_SERVICE_STORAGE = "false"
     WEBSITES_PORT                       = tostring(var.frontend_port)
@@ -149,6 +151,8 @@ resource "azurerm_linux_web_app_slot" "frontend_staging" {
 
   app_settings = {
     NEXT_PUBLIC_API_BASE_URL            = var.api_base_url
+    NEXT_PUBLIC_MYSTIRA_AUTH_CLIENT_ID  = var.frontend_mystira_auth_client_id
+    NEXT_PUBLIC_MYSTIRA_TENANT_ID       = var.frontend_mystira_tenant_id
     NODE_ENV                            = "production"
     WEBSITES_ENABLE_APP_SERVICE_STORAGE = "false"
     WEBSITES_PORT                       = tostring(var.frontend_port)

@@ -100,6 +100,8 @@ jobs:
           push: true
           build-args: |
             NEXT_PUBLIC_API_BASE_URL=${{ env.API_BASE_URL }}
+            NEXT_PUBLIC_MYSTIRA_AUTH_CLIENT_ID=${{ vars.NEXT_PUBLIC_MYSTIRA_AUTH_CLIENT_ID }}
+            NEXT_PUBLIC_MYSTIRA_TENANT_ID=${{ vars.NEXT_PUBLIC_MYSTIRA_TENANT_ID }}
           tags: |
             ${{ steps.meta.outputs.image_ref }}
             ${{ env.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:latest
@@ -138,7 +140,10 @@ jobs:
             --resource-group "${{ vars.AZURE_WEBAPP_RESOURCE_GROUP }}" \
             --name "${{ vars.COGNITIVE_MESH_FRONTEND_APP_NAME }}" \
             --slot staging \
-            --settings WEBSITES_PORT=3000
+            --settings \
+              WEBSITES_PORT=3000 \
+              NEXT_PUBLIC_MYSTIRA_AUTH_CLIENT_ID=${{ vars.NEXT_PUBLIC_MYSTIRA_AUTH_CLIENT_ID }} \
+              NEXT_PUBLIC_MYSTIRA_TENANT_ID=${{ vars.NEXT_PUBLIC_MYSTIRA_TENANT_ID }}
 
       - name: Restart staging slot
         run: |
@@ -187,7 +192,10 @@ jobs:
           az webapp config appsettings set \
             --resource-group "${{ vars.AZURE_WEBAPP_RESOURCE_GROUP }}" \
             --name "${{ vars.COGNITIVE_MESH_FRONTEND_APP_NAME }}" \
-            --settings WEBSITES_PORT=3000
+            --settings \
+              WEBSITES_PORT=3000 \
+              NEXT_PUBLIC_MYSTIRA_AUTH_CLIENT_ID=${{ vars.NEXT_PUBLIC_MYSTIRA_AUTH_CLIENT_ID }} \
+              NEXT_PUBLIC_MYSTIRA_TENANT_ID=${{ vars.NEXT_PUBLIC_MYSTIRA_TENANT_ID }}
 
       - name: Restart production
         run: |
