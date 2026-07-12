@@ -18,7 +18,7 @@ function sanitizeReturnTo(value: string | null): string {
 }
 
 function LoginForm() {
-  const { loginWithMystira, requestMagicLink, isAuthenticated, isLoading } = useAuth()
+  const { loginWithMystira, isAuthenticated, isLoading } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
   const [error, setError] = useState("")
@@ -61,16 +61,10 @@ function LoginForm() {
     setError("")
     setNotice("")
     setSubmittingProvider("magic")
-    requestMagicLink(trimmedEmail)
-      .then(() => {
-        setNotice("Check your email for a Mystira magic sign-in link.")
-      })
-      .catch((err) => {
-        setError(err instanceof Error ? err.message : "Unable to send magic link")
-      })
-      .finally(() => {
-        setSubmittingProvider(null)
-      })
+    const startUrl = new URL("/api/auth/mystira/start", window.location.origin)
+    startUrl.searchParams.set("returnTo", returnTo)
+    startUrl.searchParams.set("login_hint", trimmedEmail)
+    window.location.href = startUrl.toString()
   }
 
   if (isLoading) {
@@ -139,7 +133,7 @@ function LoginForm() {
               className="flex w-full items-center justify-center gap-3 rounded-lg border border-cyan-700/70 bg-gray-950/40 px-4 py-3 font-medium text-cyan-100 transition hover:border-cyan-500 hover:bg-cyan-950/30 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Mail aria-hidden="true" className="h-4 w-4" />
-              {submittingProvider === "magic" ? "Sending magic link..." : "Send Mystira magic link"}
+              {submittingProvider === "magic" ? "Opening Mystira Identity..." : "Continue with Mystira magic link"}
             </button>
           </form>
         </div>

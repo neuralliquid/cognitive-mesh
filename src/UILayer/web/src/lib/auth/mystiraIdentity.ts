@@ -18,7 +18,6 @@ const configuredScopes = process.env.NEXT_PUBLIC_MYSTIRA_AUTH_SCOPES
 const scopes = configuredScopes
   ? configuredScopes.split(/[,\s]+/).filter(Boolean)
   : ["openid", "profile", "email"]
-const identityApiProxyBaseUrl = "/api/mystira-identity"
 
 let instance: PublicClientApplication | null = null
 let initialization: Promise<void> | null = null
@@ -122,44 +121,4 @@ export async function signOutOfMystira() {
     account,
     postLogoutRedirectUri: getRedirectUri(),
   })
-}
-
-export interface MystiraMagicSignupResult {
-  pendingSignupId?: string
-  status?: string
-  message?: string
-}
-
-export interface MystiraMagicConsumeResult {
-  accessToken?: string | null
-  expiresAtUtc?: string | null
-  refreshToken?: string | null
-  status: string
-  message: string
-}
-
-async function postMystiraIdentity<T>(path: string, body: unknown): Promise<T> {
-  const response = await fetch(`${identityApiProxyBaseUrl}${path}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  })
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: "Mystira Identity request failed" }))
-    throw new Error(error.message ?? "Mystira Identity request failed")
-  }
-
-  return response.json() as Promise<T>
-}
-
-export async function requestMystiraMagicLink(email: string): Promise<MystiraMagicSignupResult> {
-  return postMystiraIdentity<MystiraMagicSignupResult>("/magic/request", {
-    email,
-    displayName: null,
-  })
-}
-
-export async function consumeMystiraMagicLink(token: string): Promise<MystiraMagicConsumeResult> {
-  return postMystiraIdentity<MystiraMagicConsumeResult>("/magic/consume", { token })
 }
