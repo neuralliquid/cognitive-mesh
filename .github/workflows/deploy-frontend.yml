@@ -17,7 +17,7 @@ on:
   workflow_run:
     workflows: ["Build and Analyze"]
     types: [completed]
-    branches: [main]
+    branches: [dev, main]
   workflow_dispatch:
     inputs:
       skip_slot:
