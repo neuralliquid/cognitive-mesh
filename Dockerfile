@@ -17,7 +17,7 @@ RUN dotnet build CognitiveMesh.sln -c Release --no-restore
 
 # Publish the runtime project (configurable via build arg)
 ARG PUBLISH_PROJECT=src/ApiHost/ApiHost.csproj
-RUN dotnet publish "${PUBLISH_PROJECT}" -c Release --no-build -o /app/publish
+RUN dotnet publish "${PUBLISH_PROJECT}" -c Release --no-restore -o /app/publish
 
 # ------------------------------------------------------------------
 # Stage 2: Runtime
