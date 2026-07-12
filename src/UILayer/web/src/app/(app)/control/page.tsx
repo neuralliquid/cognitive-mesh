@@ -1,10 +1,11 @@
 "use client"
 
+import Link from "next/link"
 import { useCallback, useState } from "react"
 import DashboardLayout from "@/components/DashboardLayout"
 import Nexus from "@/components/Nexus"
 import { DragDropProvider } from "@/contexts/DragDropContext"
-import { Maximize2, Move, Radio, RotateCcw, SlidersHorizontal } from "lucide-react"
+import { ArrowLeft, Maximize2, Move, Radio, RotateCcw, SlidersHorizontal } from "lucide-react"
 
 type DockHandleStyle = "grip" | "anchor" | "titlebar" | "ring" | "invisible"
 
@@ -30,14 +31,23 @@ export default function ControlPage() {
 
   return (
     <DragDropProvider>
-      <div className="min-h-[calc(100vh-5.5rem)] overflow-hidden rounded-lg border border-cyan-500/20 bg-slate-950/70 shadow-2xl shadow-cyan-950/30">
+      <div className="min-h-screen overflow-hidden bg-slate-950 shadow-2xl shadow-cyan-950/30">
         <div className="border-b border-white/10 bg-black/40 px-4 py-3 backdrop-blur-md">
           <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-            <div>
-              <h1 className="text-lg font-semibold text-white">CogMesh Control</h1>
-              <p className="mt-1 text-xs text-slate-400">
-                Immersive command surface for dockable controls, agent operations, and mesh inspection.
-              </p>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <Link
+                href="/dashboard"
+                className="inline-flex w-fit items-center gap-2 rounded-md border border-cyan-500/20 bg-cyan-500/10 px-3 py-2 text-xs font-medium text-cyan-200 transition hover:bg-cyan-500/20 hover:text-white"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                Back to Mesh
+              </Link>
+              <div>
+                <h1 className="text-lg font-semibold text-white">CogMesh Control</h1>
+                <p className="mt-1 text-xs text-slate-400">
+                  Immersive command surface for dockable controls, agent operations, and mesh inspection.
+                </p>
+              </div>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
@@ -72,7 +82,7 @@ export default function ControlPage() {
         </div>
 
         <div className="grid gap-4 p-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
-          <div className="relative min-h-[44rem] overflow-auto rounded-lg border border-white/10 bg-slate-950/60 p-4">
+          <div className="relative min-h-[calc(100vh-8rem)] overflow-auto rounded-lg border border-white/10 bg-slate-950/60 p-4">
             <Nexus
               mode="command"
               isVoiceActive={voiceActive}

@@ -138,7 +138,12 @@ jobs:
               WEBSITES_PORT=8080 \
               ASPNETCORE_URLS=http://+:8080 \
               Cors__AllowedOrigins__0=https://cognitive-mesh-frontend-prod.azurewebsites.net \
-              Cors__AllowedOrigins__1=https://cognitive-mesh-frontend-prod-staging.azurewebsites.net
+              Cors__AllowedOrigins__1=https://cognitive-mesh-frontend-prod-staging.azurewebsites.net \
+              Cors__AllowedOrigins__2=https://cognitive-mesh.neuralliquid.ai \
+              Cors__AllowedOrigins__3=https://control.cognitive-mesh.neuralliquid.ai \
+              Cors__AllowedOrigins__4=https://cognitivemesh.neuralliquid.ai \
+              Cors__AllowedOrigins__5=https://app.cognitivemesh.neuralliquid.ai \
+              Cors__AllowedOrigins__6=https://frontend.cognitivemesh.neuralliquid.ai
 
       - name: Restart staging slot
         run: |
@@ -191,7 +196,12 @@ jobs:
               WEBSITES_PORT=8080 \
               ASPNETCORE_URLS=http://+:8080 \
               Cors__AllowedOrigins__0=https://cognitive-mesh-frontend-prod.azurewebsites.net \
-              Cors__AllowedOrigins__1=https://cognitive-mesh-frontend-prod-staging.azurewebsites.net
+              Cors__AllowedOrigins__1=https://cognitive-mesh-frontend-prod-staging.azurewebsites.net \
+              Cors__AllowedOrigins__2=https://cognitive-mesh.neuralliquid.ai \
+              Cors__AllowedOrigins__3=https://control.cognitive-mesh.neuralliquid.ai \
+              Cors__AllowedOrigins__4=https://cognitivemesh.neuralliquid.ai \
+              Cors__AllowedOrigins__5=https://app.cognitivemesh.neuralliquid.ai \
+              Cors__AllowedOrigins__6=https://frontend.cognitivemesh.neuralliquid.ai
 
       - name: Restart production
         run: |

@@ -39,6 +39,8 @@ inputs = {
   api_allowed_origins = [
     "https://cognitive-mesh-frontend-prod.azurewebsites.net",
     "https://cognitive-mesh-frontend-prod-staging.azurewebsites.net",
+    "https://cognitive-mesh.neuralliquid.ai",
+    "https://control.cognitive-mesh.neuralliquid.ai",
     "https://cognitivemesh.neuralliquid.ai",
     "https://app.cognitivemesh.neuralliquid.ai",
     "https://frontend.cognitivemesh.neuralliquid.ai",
