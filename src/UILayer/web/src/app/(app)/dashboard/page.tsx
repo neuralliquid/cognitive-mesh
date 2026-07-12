@@ -1,6 +1,8 @@
 "use client"
 
+import Link from "next/link"
 import { useEffect } from "react"
+import { ArrowUpRight, PanelTop } from "lucide-react"
 import { useDashboardStore } from "@/stores"
 import { SkeletonDashboard } from "@/components/Skeleton"
 
@@ -18,7 +20,20 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-bold text-white">Dashboard</h1>
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <h1 className="text-xl font-bold text-white">Dashboard</h1>
+          <p className="mt-1 text-sm text-gray-400">Mesh status, governance surfaces, and live system signals.</p>
+        </div>
+        <Link
+          href="/control"
+          className="inline-flex w-fit items-center gap-3 rounded-md border border-cyan-500/30 bg-cyan-500/10 px-4 py-3 text-sm font-medium text-cyan-100 transition hover:bg-cyan-500/20 hover:text-white"
+        >
+          <PanelTop className="h-4 w-4" />
+          Launch Command Center
+          <ArrowUpRight className="h-4 w-4" />
+        </Link>
+      </div>
 
       {error && (
         <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">

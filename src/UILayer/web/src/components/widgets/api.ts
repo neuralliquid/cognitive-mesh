@@ -52,6 +52,7 @@ import type {
   LearningCatalystRequest,
   LearningCatalystResponse,
   InnovationSpreadResult,
+  ModelRoutingSummary,
 } from './types';
 
 type ApiObject = Record<string, unknown>;
@@ -326,4 +327,10 @@ export async function getConvenerInnovationSpread(
   ideaId: string,
 ): Promise<InnovationSpreadResult> {
   return fetchJson(`/api/v1/convener/innovation/spread/${encodeURIComponent(ideaId)}`);
+}
+
+// ───────────────────────── Model Routing & Docket ──────────────────────────
+
+export async function getModelRoutingSummary(): Promise<ModelRoutingSummary> {
+  return fetchJson('/api/v1/model-routing/summary', liveReadOptions);
 }
