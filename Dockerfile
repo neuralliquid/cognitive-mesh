@@ -6,29 +6,17 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
-# Copy solution and project files first for layer caching
-COPY CognitiveMesh.sln Directory.Build.props ./
-COPY src/FoundationLayer/*.csproj src/FoundationLayer/
-COPY src/ReasoningLayer/*.csproj src/ReasoningLayer/
-COPY src/MetacognitiveLayer/*.csproj src/MetacognitiveLayer/
-COPY src/AgencyLayer/*.csproj src/AgencyLayer/
-COPY src/BusinessApplications/*.csproj src/BusinessApplications/
-COPY src/MeshSimRuntime/*.csproj src/MeshSimRuntime/
-COPY src/Shared/*.csproj src/Shared/
-COPY src/UILayer/*.csproj src/UILayer/
-COPY tests/ tests/
+# Copy the full source before restore because the solution references nested projects.
+COPY . .
 
 # Restore NuGet packages
 RUN dotnet restore CognitiveMesh.sln
-
-# Copy remaining source
-COPY . .
 
 # Build in Release mode
 RUN dotnet build CognitiveMesh.sln -c Release --no-restore
 
 # Publish the runtime project (configurable via build arg)
-ARG PUBLISH_PROJECT=src/MeshSimRuntime/MeshSimRuntime.csproj
+ARG PUBLISH_PROJECT=src/ApiHost/ApiHost.csproj
 RUN dotnet publish "${PUBLISH_PROJECT}" -c Release --no-build -o /app/publish
 
 # ------------------------------------------------------------------
@@ -44,7 +32,7 @@ RUN useradd --create-home --shell /usr/sbin/nologin appuser
 COPY --from=build /app/publish .
 
 # Configurable entrypoint DLL name
-ENV ENTRYPOINT_DLL="MeshSimRuntime.dll"
+ENV ENTRYPOINT_DLL="ApiHost.dll"
 
 # Expose default ASP.NET Core port
 EXPOSE 8080
