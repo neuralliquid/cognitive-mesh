@@ -39,12 +39,12 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.3
         with:
           fetch-depth: 0
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@v5.4.0
         with:
           dotnet-version: "9.0.x"
 
@@ -75,7 +75,7 @@ jobs:
             -assemblyfilters:"+CognitiveMesh.*;-*.Tests"
 
       - name: Upload to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v5.5.5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: TestResults/**/coverage.opencover.xml
@@ -85,7 +85,7 @@ jobs:
           verbose: true
 
       - name: Upload coverage report artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.1
         if: always()
         with:
           name: coverage-report
@@ -94,7 +94,7 @@ jobs:
 
       - name: Post coverage summary on PR
         if: github.event_name == 'pull_request'
-        uses: marocchino/sticky-pull-request-comment@v2
+        uses: marocchino/sticky-pull-request-comment@v2.9.4
         with:
           path: TestResults/report/SummaryGithub.md
           header: coverage

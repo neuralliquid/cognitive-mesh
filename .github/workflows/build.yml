@@ -13,10 +13,10 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6.0.3
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@v5.4.0
         with:
           dotnet-version: |
             9.0.x
@@ -33,17 +33,17 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6.0.3
 
       - name: Set up pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v4.4.0
         with:
-          version: 10.33.2
+          version: 10.34.4
 
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v6.4.0
         with:
-          node-version: '24.15.0'
+          node-version: '24.18.0'
           cache: 'pnpm'
           cache-dependency-path: docs/pnpm-lock.yaml
 
@@ -70,17 +70,17 @@ jobs:
         working-directory: src/UILayer/web
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6.0.3
 
       - name: Set up pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v4.4.0
         with:
-          version: 10.33.2
+          version: 10.34.4
 
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v6.4.0
         with:
-          node-version: '22.22.2'
+          node-version: '22.23.1'
           cache: 'pnpm'
           cache-dependency-path: src/UILayer/web/pnpm-lock.yaml
 
@@ -99,7 +99,7 @@ jobs:
 
       - name: Upload coverage
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4.6.2
         with:
           name: frontend-coverage
           path: src/UILayer/web/coverage/
