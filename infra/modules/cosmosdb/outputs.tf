@@ -25,7 +25,7 @@ output "primary_key" {
 
 output "connection_strings" {
   description = "Connection strings for the Cosmos DB account."
-  value       = azurerm_cosmosdb_account.this.connection_strings
+  value       = [azurerm_cosmosdb_account.this.primary_sql_connection_string]
   sensitive   = true
 }
 

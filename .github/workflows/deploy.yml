@@ -1,16 +1,14 @@
 ###############################################################################
-# Cognitive Mesh — Deploy Pipeline
+# Cognitive Mesh - API Deploy Pipeline
 #
-# Trigger: Push to main (after build.yml succeeds) or manual dispatch.
-# Flow:    Build Docker -> Push to ACR -> Deploy Staging -> Manual Gate -> Deploy Production
+# Flow: Build Docker -> Push to shared ACR -> Deploy staging slot -> Deploy prod.
 #
-# Required secrets:
-#   AZURE_CREDENTIALS         – Service principal JSON for az login (federated or secret)
-#   ACR_LOGIN_SERVER          – e.g. cognitivemeshacr.azurecr.io
-#   ACR_USERNAME              – ACR admin or SP username
-#   ACR_PASSWORD              – ACR admin or SP password
-#   AKS_CLUSTER_NAME          – AKS cluster name
-#   AKS_RESOURCE_GROUP        – Resource group containing the AKS cluster
+# Required secret:
+#   AZURE_CREDENTIALS
+#
+# Required repository or organization variables:
+#   AZURE_WEBAPP_RESOURCE_GROUP
+#   COGNITIVE_MESH_API_APP_NAME
 ###############################################################################
 
 name: Deploy
@@ -22,8 +20,8 @@ on:
     branches: [main]
   workflow_dispatch:
     inputs:
-      skip_staging:
-        description: "Skip staging deployment and deploy directly to production"
+      skip_slot:
+        description: "Skip staging slot deployment and deploy directly to production"
         required: false
         default: "false"
         type: boolean
@@ -33,32 +31,31 @@ on:
         type: string
 
 concurrency:
-  group: deploy-${{ github.ref }}
+  group: deploy-api-${{ github.ref }}
   cancel-in-progress: false
 
 permissions:
   contents: read
-  id-token: write    # For OIDC federated credentials (Azure)
+  id-token: write
   actions: read
 
 env:
+  ACR_NAME: myssharedacr
+  ACR_LOGIN_SERVER: myssharedacr.azurecr.io
   IMAGE_NAME: cognitive-mesh-api
-  KUSTOMIZE_VERSION: "5.4.3"
+  PRODUCTION_URL: https://cognitivemesh.neuralliquid.ai
+  SLOT_URL: https://staging.cognitivemesh.neuralliquid.ai
 
 jobs:
-  # -----------------------------------------------------------------------
-  # 1. Build & Push Docker image to ACR
-  # -----------------------------------------------------------------------
   build-and-push:
-    name: Build & Push Docker Image
+    name: Build & Push API Image
     runs-on: ubuntu-latest
-    # Only run if the triggering workflow succeeded (or if manually dispatched)
     if: >
       github.event_name == 'workflow_dispatch' ||
       github.event.workflow_run.conclusion == 'success'
     outputs:
       image_tag: ${{ steps.meta.outputs.tag }}
-      image_digest: ${{ steps.push.outputs.digest }}
+      image_ref: ${{ steps.meta.outputs.image_ref }}
 
     steps:
       - name: Checkout repository
@@ -66,7 +63,12 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Compute image tag
+      - name: Azure login
+        uses: azure/login@v2.3.0
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Compute image metadata
         id: meta
         run: |
           if [ -n "${{ inputs.image_tag }}" ]; then
@@ -74,181 +76,122 @@ jobs:
           else
             TAG="sha-$(git rev-parse --short HEAD)"
           fi
+          IMAGE_REF="${ACR_LOGIN_SERVER}/${IMAGE_NAME}:${TAG}"
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
-          echo "Image tag: ${TAG}"
+          echo "image_ref=${IMAGE_REF}" >> "$GITHUB_OUTPUT"
+          echo "Image: ${IMAGE_REF}"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4.2.0
 
-      - name: Log in to Azure Container Registry
-        uses: docker/login-action@v4.4.0
-        with:
-          registry: ${{ secrets.ACR_LOGIN_SERVER }}
-          username: ${{ secrets.ACR_USERNAME }}
-          password: ${{ secrets.ACR_PASSWORD }}
+      - name: Log in to shared ACR
+        run: az acr login --name "${ACR_NAME}"
 
       - name: Build and push
-        id: push
         uses: docker/build-push-action@v7.3.0
         with:
           context: .
           push: true
           tags: |
-            ${{ secrets.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.tag }}
-            ${{ secrets.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:latest
+            ${{ steps.meta.outputs.image_ref }}
+            ${{ env.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
 
-  # -----------------------------------------------------------------------
-  # 2. Deploy to Staging
-  # -----------------------------------------------------------------------
-  deploy-staging:
-    name: Deploy to Staging
+  deploy-slot:
+    name: Deploy API to Staging Slot
     needs: build-and-push
-    if: inputs.skip_staging != true
-    runs-on: ubuntu-latest
-    environment:
-      name: staging
-      url: https://staging.cognitivemesh.io
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6.0.3
-
-      - name: Azure Login
-        uses: azure/login@v2.3.0
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-      - name: Set AKS context
-        uses: azure/aks-set-context@v4.0.3
-        with:
-          cluster-name: ${{ secrets.AKS_CLUSTER_NAME }}
-          resource-group: ${{ secrets.AKS_RESOURCE_GROUP }}
-
-      - name: Install Kustomize
-        uses: imranismail/setup-kustomize@v2.1.0
-        with:
-          kustomize-version: ${{ env.KUSTOMIZE_VERSION }}
-
-      - name: Update image tag in staging overlay
-        run: |
-          cd k8s/overlays/staging
-          kustomize edit set image \
-            cognitive-mesh-api=${{ secrets.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:${{ needs.build-and-push.outputs.image_tag }}
-
-      - name: Apply staging manifests
-        run: |
-          kustomize build k8s/overlays/staging | kubectl apply -f -
-
-      - name: Wait for rollout
-        run: |
-          kubectl rollout status deployment/cognitive-mesh-api \
-            -n cognitive-mesh-staging \
-            --timeout=300s
-
-      - name: Run smoke tests
-        run: |
-          STAGING_URL="http://cognitive-mesh-api.cognitive-mesh-staging.svc.cluster.local:8080"
-          # Wait for the service to become reachable
-          for i in $(seq 1 30); do
-            if kubectl exec -n cognitive-mesh-staging deploy/cognitive-mesh-api -- \
-              curl -sf "${STAGING_URL}/healthz" > /dev/null 2>&1; then
-              echo "Staging health check passed"
-              exit 0
-            fi
-            echo "Waiting for staging to be ready... ($i/30)"
-            sleep 10
-          done
-          echo "Staging health check failed after 5 minutes"
-          exit 1
-
-  # -----------------------------------------------------------------------
-  # 3. Deploy to Production (manual approval via GitHub Environment)
-  # -----------------------------------------------------------------------
-  deploy-production:
-    name: Deploy to Production
-    needs: [build-and-push, deploy-staging]
-    # Run if staging succeeded, or if staging was skipped
-    if: always() && needs.build-and-push.result == 'success' && (needs.deploy-staging.result == 'success' || needs.deploy-staging.result == 'skipped')
+    if: github.event_name != 'workflow_dispatch' || inputs.skip_slot != true
     runs-on: ubuntu-latest
     environment:
       name: production
-      url: https://cognitivemesh.io
+      url: https://staging.cognitivemesh.neuralliquid.ai
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6.0.3
-
-      - name: Azure Login
+      - name: Azure login
         uses: azure/login@v2.3.0
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Set AKS context
-        uses: azure/aks-set-context@v4.0.3
+      - name: Configure staging slot container
+        run: |
+          az webapp config container set \
+            --resource-group "${{ vars.AZURE_WEBAPP_RESOURCE_GROUP }}" \
+            --name "${{ vars.COGNITIVE_MESH_API_APP_NAME }}" \
+            --slot staging \
+            --container-image-name "${{ needs.build-and-push.outputs.image_ref }}" \
+            --container-registry-url "https://${ACR_LOGIN_SERVER}"
+          az webapp config appsettings set \
+            --resource-group "${{ vars.AZURE_WEBAPP_RESOURCE_GROUP }}" \
+            --name "${{ vars.COGNITIVE_MESH_API_APP_NAME }}" \
+            --slot staging \
+            --settings WEBSITES_PORT=8080 ASPNETCORE_URLS=http://+:8080
+
+      - name: Restart staging slot
+        run: |
+          az webapp restart \
+            --resource-group "${{ vars.AZURE_WEBAPP_RESOURCE_GROUP }}" \
+            --name "${{ vars.COGNITIVE_MESH_API_APP_NAME }}" \
+            --slot staging
+
+      - name: Verify staging slot health
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS "${SLOT_URL}/healthz"; then
+              echo "Staging slot health check passed"
+              exit 0
+            fi
+            echo "Waiting for staging slot... ($i/30)"
+            sleep 10
+          done
+          echo "Staging slot health check failed"
+          exit 1
+
+  deploy-production:
+    name: Deploy API to Production
+    needs: [build-and-push, deploy-slot]
+    if: always() && needs.build-and-push.result == 'success' && (needs.deploy-slot.result == 'success' || needs.deploy-slot.result == 'skipped')
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://cognitivemesh.neuralliquid.ai
+
+    steps:
+      - name: Azure login
+        uses: azure/login@v2.3.0
         with:
-          cluster-name: ${{ secrets.AKS_CLUSTER_NAME }}
-          resource-group: ${{ secrets.AKS_RESOURCE_GROUP }}
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Install Kustomize
-        uses: imranismail/setup-kustomize@v2.1.0
-        with:
-          kustomize-version: ${{ env.KUSTOMIZE_VERSION }}
-
-      - name: Update image tag in production overlay
+      - name: Configure production container
         run: |
-          cd k8s/overlays/prod
-          kustomize edit set image \
-            cognitive-mesh-api=${{ secrets.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:${{ needs.build-and-push.outputs.image_tag }}
+          az webapp config container set \
+            --resource-group "${{ vars.AZURE_WEBAPP_RESOURCE_GROUP }}" \
+            --name "${{ vars.COGNITIVE_MESH_API_APP_NAME }}" \
+            --container-image-name "${{ needs.build-and-push.outputs.image_ref }}" \
+            --container-registry-url "https://${ACR_LOGIN_SERVER}"
+          az webapp config appsettings set \
+            --resource-group "${{ vars.AZURE_WEBAPP_RESOURCE_GROUP }}" \
+            --name "${{ vars.COGNITIVE_MESH_API_APP_NAME }}" \
+            --settings WEBSITES_PORT=8080 ASPNETCORE_URLS=http://+:8080
 
-      - name: Apply production manifests
+      - name: Restart production
         run: |
-          kustomize build k8s/overlays/prod | kubectl apply -f -
-
-      - name: Wait for rollout
-        run: |
-          kubectl rollout status deployment/cognitive-mesh-api \
-            -n cognitive-mesh-prod \
-            --timeout=600s
+          az webapp restart \
+            --resource-group "${{ vars.AZURE_WEBAPP_RESOURCE_GROUP }}" \
+            --name "${{ vars.COGNITIVE_MESH_API_APP_NAME }}"
 
       - name: Verify production health
         run: |
-          PROD_URL="http://cognitive-mesh-api.cognitive-mesh-prod.svc.cluster.local:8080"
           for i in $(seq 1 30); do
-            if kubectl exec -n cognitive-mesh-prod deploy/cognitive-mesh-api -- \
-              curl -sf "${PROD_URL}/healthz" > /dev/null 2>&1; then
+            if curl -fsS "${PRODUCTION_URL}/healthz"; then
               echo "Production health check passed"
               exit 0
             fi
-            echo "Waiting for production to be ready... ($i/30)"
+            echo "Waiting for production... ($i/30)"
             sleep 10
           done
-          echo "Production health check failed after 5 minutes"
+          echo "Production health check failed"
           exit 1
-
-  # -----------------------------------------------------------------------
-  # 4. Post-deploy notification
-  # -----------------------------------------------------------------------
-  notify:
-    name: Notify on Failure
-    if: failure()
-    needs: [build-and-push, deploy-staging, deploy-production]
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Send failure notification
-        uses: rtCamp/action-slack-notify@v2.4.0
-        if: env.SLACK_WEBHOOK != ''
-        env:
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
-          SLACK_COLOR: "#FF0000"
-          SLACK_TITLE: "Deployment Failed"
-          SLACK_MESSAGE: |
-            Deployment of `${{ github.sha }}` failed.
-            Workflow: ${{ github.workflow }}
-            Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          SLACK_USERNAME: "GitHub Actions"

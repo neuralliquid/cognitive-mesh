@@ -39,6 +39,74 @@ variable "common_tags" {
   }
 }
 
+# ---------- Feature Flags ----------
+
+variable "enable_networking" {
+  description = "Whether to deploy the virtual network module."
+  type        = bool
+  default     = false
+}
+
+variable "enable_monitoring" {
+  description = "Whether to deploy Log Analytics and Application Insights."
+  type        = bool
+  default     = false
+}
+
+variable "enable_keyvault" {
+  description = "Whether to deploy Key Vault and write generated secrets."
+  type        = bool
+  default     = false
+}
+
+variable "enable_storage" {
+  description = "Whether to deploy the storage module."
+  type        = bool
+  default     = false
+}
+
+variable "enable_cosmosdb" {
+  description = "Whether to deploy Cosmos DB."
+  type        = bool
+  default     = false
+}
+
+variable "enable_redis" {
+  description = "Whether to deploy Azure Cache for Redis."
+  type        = bool
+  default     = false
+}
+
+variable "enable_qdrant" {
+  description = "Whether to deploy Qdrant on Azure Container Instances."
+  type        = bool
+  default     = false
+}
+
+variable "enable_openai" {
+  description = "Whether to deploy a dedicated Azure OpenAI resource."
+  type        = bool
+  default     = false
+}
+
+variable "enable_ai_search" {
+  description = "Whether to deploy Azure AI Search."
+  type        = bool
+  default     = false
+}
+
+variable "enable_legacy_frontend_hosting" {
+  description = "Whether to deploy the legacy Node App Service frontend module."
+  type        = bool
+  default     = false
+}
+
+variable "enable_webapps" {
+  description = "Whether to deploy containerized API and frontend Web Apps."
+  type        = bool
+  default     = false
+}
+
 # ---------- CosmosDB ----------
 
 variable "cosmosdb_consistency_level" {
@@ -153,6 +221,44 @@ variable "frontend_custom_domain" {
   description = "Custom domain for the frontend App Service. Set to null to skip."
   type        = string
   default     = null
+}
+
+# ---------- Container Web Apps ----------
+
+variable "shared_acr_name" {
+  description = "Existing shared Azure Container Registry name."
+  type        = string
+  default     = "myssharedacr"
+}
+
+variable "shared_acr_resource_group_name" {
+  description = "Resource group containing the shared Azure Container Registry."
+  type        = string
+  default     = "mys-global-shared-rg"
+}
+
+variable "webapp_service_plan_sku" {
+  description = "App Service Plan SKU for containerized Web Apps."
+  type        = string
+  default     = "B1"
+}
+
+variable "api_container_image" {
+  description = "Initial API container image name, including tag."
+  type        = string
+  default     = "cognitive-mesh-api:latest"
+}
+
+variable "frontend_container_image" {
+  description = "Initial frontend container image name, including tag."
+  type        = string
+  default     = "cognitive-mesh-frontend:latest"
+}
+
+variable "api_public_base_url" {
+  description = "Public API base URL."
+  type        = string
+  default     = "https://api.cognitivemesh.neuralliquid.ai"
 }
 
 # ---------- Networking ----------
