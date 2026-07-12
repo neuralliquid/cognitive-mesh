@@ -23,6 +23,7 @@ import {
   Sparkles,
   Square,
   Workflow,
+  X,
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import { getAdaptiveBalance, getModelRoutingSummary } from "@/components/widgets/api"
@@ -177,6 +178,10 @@ const defaultPanels: PanelState[] = [
 
 function getWidget(id: WidgetId) {
   return widgets.find((widget) => widget.id === id) ?? widgets[0]
+}
+
+function getPanelTitle(panels: PanelState[], id: PanelId) {
+  return panels.find((panel) => panel.id === id)?.title ?? id
 }
 
 function readStoredPanels(): PanelState[] {
@@ -541,6 +546,7 @@ export default function ControlPage() {
   const [commandText, setCommandText] = useState("")
   const [commandContext, setCommandContext] = useState<CommandContext>("reasoning")
   const [commandStatus, setCommandStatus] = useState<"idle" | "pending">("idle")
+  const [selectedPanelId, setSelectedPanelId] = useState<PanelId>("tools")
   const [commandLog, setCommandLog] = useState<string[]>([
     "Control interface online",
     "Command Center linked to mesh dashboard",
@@ -559,19 +565,40 @@ export default function ControlPage() {
     setPanels((current) => current.map((panel) => (panel.id === id ? { ...panel, ...patch } : panel)))
   }, [])
 
-  const addWidget = useCallback((widgetId: WidgetId) => {
+  const widgetLocations = useMemo(() => {
+    const locations = new Map<WidgetId, PanelId>()
+    panels.forEach((panel) => {
+      panel.widgets.forEach((widgetId) => locations.set(widgetId, panel.id))
+    })
+    return locations
+  }, [panels])
+
+  const placeWidget = useCallback((widgetId: WidgetId) => {
     const widget = getWidget(widgetId)
     setPanels((current) =>
       current.map((panel) => {
-        if (panel.id !== widget.defaultPanel || panel.widgets.includes(widgetId)) return panel
-        return { ...panel, widgets: [...panel.widgets, widgetId] }
+        const remainingWidgets = panel.widgets.filter((id) => id !== widgetId)
+        if (panel.id !== selectedPanelId) return { ...panel, widgets: remainingWidgets }
+        return { ...panel, widgets: [...remainingWidgets, widgetId] }
       }),
     )
-    setCommandLog((current) => [`Added ${widget.label} to ${widget.defaultPanel}`, ...current].slice(0, 6))
+    setCommandLog((current) => [`Placed ${widget.label} in ${getPanelTitle(panels, selectedPanelId)}`, ...current].slice(0, 6))
+  }, [panels, selectedPanelId])
+
+  const removeWidget = useCallback((widgetId: WidgetId) => {
+    const widget = getWidget(widgetId)
+    setPanels((current) =>
+      current.map((panel) => ({
+        ...panel,
+        widgets: panel.widgets.filter((id) => id !== widgetId),
+      })),
+    )
+    setCommandLog((current) => [`Removed ${widget.label} from layout`, ...current].slice(0, 6))
   }, [])
 
   const resetLayout = useCallback(() => {
     setPanels(defaultPanels)
+    setSelectedPanelId("tools")
     setCommandStatus("idle")
     setCommandLog((current) => ["Layout reset to default", ...current].slice(0, 6))
   }, [])
@@ -720,22 +747,69 @@ export default function ControlPage() {
               <SlidersHorizontal className="h-4 w-4 text-purple-300" />
               Widget Library
             </div>
+            <div className="mb-3 rounded-md border border-white/10 bg-black/20 p-2">
+              <p className="mb-2 text-xs text-slate-500">Place selected widgets in</p>
+              <div className="grid grid-cols-1 gap-1">
+                {panels.map((panel) => (
+                  <button
+                    key={panel.id}
+                    type="button"
+                    onClick={() => setSelectedPanelId(panel.id)}
+                    className={`flex items-center justify-between rounded px-2 py-1.5 text-left text-xs transition ${
+                      selectedPanelId === panel.id
+                        ? "bg-cyan-500/15 text-cyan-200"
+                        : "text-slate-400 hover:bg-white/10 hover:text-white"
+                    }`}
+                  >
+                    <span>{panel.title}</span>
+                    <span className="rounded bg-slate-900 px-1.5 py-0.5 text-[10px] text-slate-500">
+                      {panel.widgets.length}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
             <div className="space-y-2">
               {widgets.map((widget) => {
                 const Icon = widget.icon
+                const currentPanelId = widgetLocations.get(widget.id)
+                const currentPanelTitle = currentPanelId ? getPanelTitle(panels, currentPanelId) : "Not placed"
+                const isInSelectedPanel = currentPanelId === selectedPanelId
                 return (
-                  <button
+                  <div
                     key={widget.id}
-                    type="button"
-                    onClick={() => addWidget(widget.id)}
-                    className="flex w-full items-start gap-3 rounded-md border border-white/10 bg-black/20 p-3 text-left transition hover:border-cyan-500/30 hover:bg-cyan-500/10"
+                    className={`rounded-md border bg-black/20 p-3 transition ${
+                      isInSelectedPanel ? "border-cyan-500/40 bg-cyan-500/10" : "border-white/10 hover:border-cyan-500/30"
+                    }`}
                   >
-                    <Icon className={`mt-0.5 h-4 w-4 ${widget.color}`} />
-                    <span>
-                      <span className="block text-sm text-white">{widget.label}</span>
-                      <span className="mt-1 block text-xs leading-4 text-slate-500">{widget.description}</span>
-                    </span>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => placeWidget(widget.id)}
+                      className="flex w-full items-start gap-3 text-left"
+                    >
+                      <Icon className={`mt-0.5 h-4 w-4 ${widget.color}`} />
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm text-white">{widget.label}</span>
+                        <span className="mt-1 block text-xs leading-4 text-slate-500">{widget.description}</span>
+                      </span>
+                    </button>
+                    <div className="mt-3 flex items-center justify-between gap-2 border-t border-white/10 pt-2">
+                      <span className="truncate text-[11px] text-slate-500">
+                        {currentPanelId ? `In ${currentPanelTitle}` : "Not in layout"}
+                      </span>
+                      {currentPanelId && (
+                        <button
+                          type="button"
+                          onClick={() => removeWidget(widget.id)}
+                          className="inline-flex items-center gap-1 rounded px-1.5 py-1 text-[11px] text-slate-400 transition hover:bg-red-500/10 hover:text-red-200"
+                          title={`Remove ${widget.label}`}
+                        >
+                          <X className="h-3 w-3" />
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 )
               })}
             </div>
@@ -775,7 +849,7 @@ export default function ControlPage() {
               Layout
             </div>
             <p className="text-xs leading-5 text-slate-400">
-              Add widgets from the library. Use each panel header to float, dock, expand, shrink, and drag floating panels.
+              Select a destination panel in the Widget Library, then choose a widget to add or move it. Use each panel header to float, dock, expand, shrink, and drag floating panels.
               Layout is saved in this browser.
             </p>
           </div>
