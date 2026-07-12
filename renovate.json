@@ -6,6 +6,10 @@
     ":semanticCommits",
     "group:allNonMajor"
   ],
+  "baseBranches": ["dev"],
+  "timezone": "Africa/Johannesburg",
+  "minimumReleaseAge": "3 days",
+  "ignorePaths": ["**/node_modules/**", "**/vendor/**", "**/.terraform/**"],
   "labels": ["dependencies"],
   "rangeStrategy": "pin",
   "packageRules": [
