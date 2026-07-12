@@ -1,14 +1,44 @@
 using CognitiveMesh.ReasoningLayer.LLMReasoning.Abstractions;
+using Microsoft.Extensions.Logging;
 
 namespace CognitiveMesh.ReasoningLayer.LLMReasoning
 {
     /// <summary>
     /// Factory class for creating ILLMClient instances.
-    /// Supports multi-provider routing: Azure OpenAI, OpenAI, MiniMax, DeepSeek,
-    /// Google, Anthropic, xAI, Meta (via Ollama), and any OpenAI-compatible endpoint.
+    /// Routes production model calls through Sluice by default. Direct provider
+    /// clients are retained only for explicit local mocks or migration shims.
     /// </summary>
     public static class LLMClientFactory
     {
+        private const string DirectProviderOverrideKey = "ALLOW_DIRECT_MODEL_PROVIDER";
+
+        /// <summary>
+        /// Creates a new instance of <see cref="ILLMClient"/> using Sluice.
+        /// </summary>
+        /// <param name="baseUrl">The Sluice API base URL.</param>
+        /// <param name="apiKey">Optional Sluice bearer token or API key.</param>
+        /// <param name="modelName">The logical model or route name Sluice should resolve.</param>
+        /// <param name="maxTokens">Maximum output tokens.</param>
+        /// <param name="logger">Optional logger instance.</param>
+        /// <returns>An initialized ILLMClient instance.</returns>
+        public static async Task<ILLMClient> CreateSluiceClientAsync(
+            string baseUrl,
+            string apiKey = "",
+            string modelName = "default",
+            int maxTokens = 16_384,
+            ILogger? logger = null)
+        {
+            var client = new Implementations.SluiceClient(
+                baseUrl,
+                apiKey,
+                modelName,
+                maxTokens,
+                logger as ILogger<Implementations.SluiceClient>);
+
+            await client.InitializeAsync();
+            return client;
+        }
+
         /// <summary>
         /// Creates a new instance of ILLMClient using Azure OpenAI
         /// </summary>
@@ -27,6 +57,8 @@ namespace CognitiveMesh.ReasoningLayer.LLMReasoning
             int maxTokens = 8192,
             ILogger? logger = null)
         {
+            EnsureDirectProviderAllowed();
+
             if (string.IsNullOrWhiteSpace(apiKey))
                 throw new ArgumentException("API key is required", nameof(apiKey));
             if (string.IsNullOrWhiteSpace(endpoint))
@@ -62,6 +94,8 @@ namespace CognitiveMesh.ReasoningLayer.LLMReasoning
             string endpoint = "https://api.minimax.chat/v1",
             ILogger? logger = null)
         {
+            EnsureDirectProviderAllowed();
+
             var client = new Implementations.MiniMaxClient(
                 apiKey,
                 modelName,
@@ -90,6 +124,8 @@ namespace CognitiveMesh.ReasoningLayer.LLMReasoning
             int maxTokens = 16_384,
             ILogger? logger = null)
         {
+            EnsureDirectProviderAllowed();
+
             var client = new Implementations.OpenAICompatibleClient(
                 apiKey,
                 endpoint,
@@ -118,6 +154,8 @@ namespace CognitiveMesh.ReasoningLayer.LLMReasoning
             string? deploymentName = null,
             ILogger? logger = null)
         {
+            EnsureDirectProviderAllowed();
+
             var model = LLMModelRegistry.GetAllModels()
                 .FirstOrDefault(m => m.Key.Equals(modelKey, StringComparison.OrdinalIgnoreCase));
 
@@ -167,6 +205,31 @@ namespace CognitiveMesh.ReasoningLayer.LLMReasoning
             if (config == null)
                 throw new ArgumentNullException(nameof(config));
 
+            if (TryGetConfigValue(config, "SluiceBaseUrl", "SLUICE_BASE_URL", out var sluiceBaseUrl))
+            {
+                TryGetConfigValue(config, "SluiceApiKey", "SLUICE_API_KEY", out var sluiceApiKey);
+                TryGetConfigValue(config, "SluiceModel", "SLUICE_MODEL", "ModelKey", out var sluiceModel);
+                TryGetConfigValue(config, "MaxTokens", "SLUICE_MAX_TOKENS", out var sluiceMaxTokensValue);
+
+                var sluiceMaxTokens = 16_384;
+                if (!string.IsNullOrWhiteSpace(sluiceMaxTokensValue) &&
+                    !int.TryParse(sluiceMaxTokensValue, out sluiceMaxTokens))
+                {
+                    logger?.LogWarning("Invalid Sluice max tokens value '{MaxTokens}', using default {DefaultMaxTokens}",
+                        sluiceMaxTokensValue, sluiceMaxTokens);
+                    sluiceMaxTokens = 16_384;
+                }
+
+                return await CreateSluiceClientAsync(
+                    sluiceBaseUrl!,
+                    sluiceApiKey ?? string.Empty,
+                    string.IsNullOrWhiteSpace(sluiceModel) ? "default" : sluiceModel,
+                    sluiceMaxTokens,
+                    logger);
+            }
+
+            EnsureDirectProviderAllowed();
+
             // Check for new multi-provider config format
             if (config.TryGetValue("ModelKey", out var modelKey) && !string.IsNullOrWhiteSpace(modelKey))
             {
@@ -207,6 +270,49 @@ namespace CognitiveMesh.ReasoningLayer.LLMReasoning
                 modelName ?? "gpt-4",
                 maxTokens,
                 logger);
+        }
+
+        private static void EnsureDirectProviderAllowed()
+        {
+            var overrideValue = Environment.GetEnvironmentVariable(DirectProviderOverrideKey);
+            if (string.Equals(overrideValue, "true", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(overrideValue, "1", StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            throw new InvalidOperationException(
+                "Direct model-provider clients are disabled. Configure SLUICE_BASE_URL, or set " +
+                $"{DirectProviderOverrideKey}=true only for local mocks or an explicit migration shim.");
+        }
+
+        private static bool TryGetConfigValue(
+            IReadOnlyDictionary<string, string> config,
+            string key,
+            string alternateKey,
+            out string? value)
+        {
+            return TryGetConfigValue(config, key, alternateKey, null, out value);
+        }
+
+        private static bool TryGetConfigValue(
+            IReadOnlyDictionary<string, string> config,
+            string key,
+            string alternateKey,
+            string? thirdKey,
+            out string? value)
+        {
+            if (config.TryGetValue(key, out value) && !string.IsNullOrWhiteSpace(value))
+                return true;
+
+            if (config.TryGetValue(alternateKey, out value) && !string.IsNullOrWhiteSpace(value))
+                return true;
+
+            if (thirdKey != null && config.TryGetValue(thirdKey, out value) && !string.IsNullOrWhiteSpace(value))
+                return true;
+
+            value = null;
+            return false;
         }
     }
 }

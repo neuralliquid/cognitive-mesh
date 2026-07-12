@@ -84,7 +84,7 @@ variable "enable_qdrant" {
 }
 
 variable "enable_openai" {
-  description = "Whether to deploy a dedicated Azure OpenAI resource."
+  description = "Whether to deploy a dedicated Azure OpenAI resource. Keep false for Cognitive Mesh prod; model egress should route through Sluice unless an exception is approved."
   type        = bool
   default     = false
 }
@@ -158,7 +158,7 @@ variable "qdrant_image" {
 # ---------- OpenAI ----------
 
 variable "openai_model_deployments" {
-  description = "Map of Azure OpenAI model deployments."
+  description = "Map of Azure OpenAI model deployments for explicit direct-provider exceptions only. Production Cognitive Mesh should use Sluice routing instead."
   type = map(object({
     model_name    = string
     model_version = string
