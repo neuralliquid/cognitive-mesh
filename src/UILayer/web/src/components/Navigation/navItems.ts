@@ -8,6 +8,7 @@ export interface NavItem {
 
 export const navItems: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: "LayoutDashboard", section: "Core" },
+  { label: "Control", href: "/control", icon: "PanelTop", section: "Core" },
   { label: "Agents", href: "/agents", icon: "Bot", section: "Core" },
   { label: "Analytics", href: "/analytics", icon: "BarChart3", section: "Core" },
   { label: "Context Engineering", href: "/context-engineering", icon: "Braces", section: "Core" },
