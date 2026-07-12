@@ -40,6 +40,7 @@ import type {
   ReflexionStatusResponse,
   ValueDiagnosticResponse,
   OrgBlindnessDetectionResponse,
+  AdoptionTelemetry,
   PsychologicalSafetyScore,
   ImpactReport,
   ResistanceIndicator,
@@ -262,6 +263,10 @@ export async function getImpactReport(
 
 export async function getResistancePatterns(tenantId: string): Promise<ResistanceIndicator[]> {
   return fetchJson(`/api/v1/impact-metrics/telemetry/${encodeURIComponent(tenantId)}/resistance`);
+}
+
+export async function getImpactUsageSummary(tenantId: string): Promise<AdoptionTelemetry[]> {
+  return fetchJson(`/api/v1/impact-metrics/telemetry/${encodeURIComponent(tenantId)}/summary`);
 }
 
 // ────────────────────────── Cognitive Sandwich ──────────────────────────────
