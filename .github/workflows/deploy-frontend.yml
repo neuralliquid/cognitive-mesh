@@ -3,8 +3,10 @@
 #
 # Flow: Build Docker -> Push to shared ACR -> Deploy staging slot -> Deploy prod.
 #
-# Required secret:
-#   AZURE_CREDENTIALS
+# Required secrets:
+#   AZURE_CLIENT_ID
+#   AZURE_TENANT_ID
+#   AZURE_SUBSCRIPTION_ID
 #
 # Required repository or organization variables:
 #   AZURE_WEBAPP_RESOURCE_GROUP
@@ -67,7 +69,9 @@ jobs:
       - name: Azure login
         uses: azure/login@v2.3.0
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Compute image metadata
         id: meta
@@ -118,7 +122,9 @@ jobs:
       - name: Azure login
         uses: azure/login@v2.3.0
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Configure staging slot container
         run: |
@@ -167,7 +173,9 @@ jobs:
       - name: Azure login
         uses: azure/login@v2.3.0
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Configure production container
         run: |

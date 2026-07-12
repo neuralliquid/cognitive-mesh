@@ -171,7 +171,9 @@ Workflow-required names observed in local files:
 
 - `GITHUB_TOKEN`
 - `CODECOV_TOKEN`
-- `AZURE_CREDENTIALS`
+- `AZURE_CLIENT_ID`
+- `AZURE_TENANT_ID`
+- `AZURE_SUBSCRIPTION_ID`
 - `AZURE_WEBAPP_RESOURCE_GROUP`
 - `COGNITIVE_MESH_API_APP_NAME`
 - `COGNITIVE_MESH_FRONTEND_APP_NAME`
@@ -227,14 +229,14 @@ Deployment workflows:
 
 - `deploy.yml`
   - Builds and pushes `cognitive-mesh-api`
-  - Uses Azure login via `AZURE_CREDENTIALS`
+  - Uses Azure login via OIDC secrets `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, and `AZURE_SUBSCRIPTION_ID`
   - Pushes to shared ACR `myssharedacr.azurecr.io`
   - Deploys to Azure Web App production plus `staging` slot
   - References URLs `https://staging.cognitivemesh.neuralliquid.ai` and `https://cognitivemesh.neuralliquid.ai`
   - Emits OCI source label from `${{ github.server_url }}/${{ github.repository }}`
 - `deploy-frontend.yml`
   - Builds and pushes `cognitive-mesh-frontend`
-  - Uses Azure login via `AZURE_CREDENTIALS`
+  - Uses Azure login via OIDC secrets `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, and `AZURE_SUBSCRIPTION_ID`
   - Pushes to shared ACR `myssharedacr.azurecr.io`
   - Uses build arg `NEXT_PUBLIC_API_BASE_URL=https://api.cognitivemesh.neuralliquid.ai`
   - Deploys to Azure Web App production plus `staging` slot
@@ -374,7 +376,11 @@ Azure identity checks:
   - `phoenix-website-github-actions`: no federated credentials
   - `convolens-sp`: federated subject `repo:neuralliquid/convolens:environment:dev`
   - `hov-shared-deploy-sp`: no federated credentials
-- No `repo:phoenixvc/cognitive-mesh:*` federated subject was found among these candidate app registrations.
+- Follow-up deployment prep created `nl-cognitive-mesh-github-actions` with federated subjects:
+  - `repo:phoenixvc/cognitive-mesh:ref:refs/heads/dev`
+  - `repo:phoenixvc/cognitive-mesh:ref:refs/heads/main`
+  - `repo:phoenixvc/cognitive-mesh:environment:production`
+- The app service principal has `AcrPush` on `myssharedacr` and `Website Contributor` on `nl-prod-cognitive-mesh-rg`.
 - The only visible OpenAI/AOAI resource match is `pvc-prod-sluice-aoai` in `pvc-prod-sluice-rg`, tagged for `project=sluice` and `purpose=aoai`.
 
 ## Reference Inventory Summary
@@ -420,7 +426,7 @@ This rollback is incomplete until the blockers below are resolved.
 - Deploy workflows require unset variables: `AZURE_WEBAPP_RESOURCE_GROUP`, `COGNITIVE_MESH_API_APP_NAME`, and `COGNITIVE_MESH_FRONTEND_APP_NAME`.
 - Deployment workflows still need the local workflow/Terraform changes to be committed and pushed before GitHub Actions will use the new Web App deployment path.
 - Old `cognitivemesh.io`, `staging.cognitivemesh.io`, and `api.cognitivemesh.io` do not resolve; replace with `*.cognitivemesh.neuralliquid.ai`.
-- No Cognitive Mesh-specific Azure app registration or federated credential was found among checked candidate GitHub Actions app registrations.
+- After repository transfer, add equivalent federated credential subjects for `neuralliquid/cognitive-mesh` to `nl-cognitive-mesh-github-actions` or a NeuralLiquid-owned replacement app registration.
 - Selected-repository GitHub App coverage still needs confirmation for `cognitive-mesh`, especially Renovate, Stilla, Devin, and phoenixvc-actions-runner; API expansion requires `read:user` scope or manual org UI review.
 
 ## Resolved Or Narrowed Blockers
@@ -437,6 +443,7 @@ This rollback is incomplete until the blockers below are resolved.
 - NeuralLiquid Terraform state backend was bootstrapped in Azure.
 - Prod Terragrunt apply completed; final Terragrunt plan reports no changes.
 - GitHub Actions variables were populated on `phoenixvc/cognitive-mesh`.
+- GitHub Actions OIDC secrets were populated on `phoenixvc/cognitive-mesh`: `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, and `AZURE_SUBSCRIPTION_ID`.
 - Terraform validation succeeds with AzureRM `4.80.0`.
 - Sluice-owned AOAI resource `pvc-prod-sluice-aoai` was found, supporting the architecture boundary that Cognitive Mesh should route model calls through `sluice`.
 - GitHub App installation inventory is now visible at org level; 40 installations were found.

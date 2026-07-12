@@ -72,7 +72,9 @@ references:
           - https://staging.cognitivemesh.neuralliquid.ai
           - https://cognitivemesh.neuralliquid.ai
         required_secret_names:
-          - AZURE_CREDENTIALS
+          - AZURE_CLIENT_ID
+          - AZURE_TENANT_ID
+          - AZURE_SUBSCRIPTION_ID
         required_variable_names:
           - AZURE_WEBAPP_RESOURCE_GROUP
           - COGNITIVE_MESH_API_APP_NAME
@@ -95,7 +97,9 @@ references:
           - https://staging.cognitivemesh.neuralliquid.ai
           - https://cognitivemesh.neuralliquid.ai
         required_secret_names:
-          - AZURE_CREDENTIALS
+          - AZURE_CLIENT_ID
+          - AZURE_TENANT_ID
+          - AZURE_SUBSCRIPTION_ID
         required_variable_names:
           - AZURE_WEBAPP_RESOURCE_GROUP
           - COGNITIVE_MESH_FRONTEND_APP_NAME
@@ -127,9 +131,26 @@ references:
   cloud_identity_references:
     - value: AZURE_CREDENTIALS
       source: .github/workflows/deploy.yml and .github/workflows/deploy-frontend.yml
+      classification: retired reference
+      action: replaced with dedicated OIDC login secrets AZURE_CLIENT_ID, AZURE_TENANT_ID, and AZURE_SUBSCRIPTION_ID
+      status: resolved
+    - value: nl-cognitive-mesh-github-actions
+      source: Azure Entra app registration created on 2026-07-12
       classification: active reference
-      action: no Cognitive Mesh-specific app registration or federated credential found in accessible Azure tenant; workflow credential is missing or external to the visible subscription/tenant scope
-      status: confirmed blocker
+      action: use as the current phoenixvc/cognitive-mesh deployment identity until transfer; add neuralliquid/cognitive-mesh federated subjects after transfer
+      status: resolved-for-current-repo
+      details:
+        client_id: 56e66921-009d-4f38-abff-d7f63f8987de
+        service_principal_object_id: d12fda42-7c39-47c4-9103-b4b0a9e350db
+        federated_subjects:
+          - repo:phoenixvc/cognitive-mesh:ref:refs/heads/dev
+          - repo:phoenixvc/cognitive-mesh:ref:refs/heads/main
+          - repo:phoenixvc/cognitive-mesh:environment:production
+        role_assignments:
+          - role: AcrPush
+            scope: myssharedacr
+          - role: Website Contributor
+            scope: nl-prod-cognitive-mesh-rg
     - value: "repo:phoenixvc/cognitive-mesh:*"
       source: migration search target; no local literal match found
       classification: unknown or externally consumed reference
@@ -300,7 +321,7 @@ references:
 blockers:
   - Deployment workflows still need the local workflow/Terraform changes to be committed and pushed before GitHub Actions will use the new Web App deployment path.
   - Old cognitivemesh.io DNS names do not resolve; replace with staging.cognitivemesh.neuralliquid.ai, prod.cognitivemesh.neuralliquid.ai, and cognitivemesh.neuralliquid.ai.
-  - No Cognitive Mesh-specific Azure app registration or federated credential subject was found in checked candidate app registrations; choose or create a NeuralLiquid deployment identity before transfer.
+  - After repository transfer, add equivalent federated credential subjects for neuralliquid/cognitive-mesh to nl-cognitive-mesh-github-actions or a NeuralLiquid-owned replacement app registration.
   - GitHub Apps with selected repository access still need per-app repository selection confirmation before transfer; expanding selected app repository lists through the API requires read:user scope.
 
 resolved_blockers:
@@ -317,6 +338,8 @@ resolved_blockers:
   - Initial prod Terragrunt apply partially succeeded on B1, then exposed Azure's Basic SKU slot limit. Prod was moved to S1 because Standard is required for deployment slots.
   - Prod Terragrunt apply completed on 2026-07-12: resource group, S1 Linux App Service plan, API Web App, frontend Web App, both staging slots, and four AcrPull role assignments to myssharedacr.
   - GitHub Actions variables were populated on phoenixvc/cognitive-mesh: AZURE_WEBAPP_RESOURCE_GROUP, COGNITIVE_MESH_API_APP_NAME, and COGNITIVE_MESH_FRONTEND_APP_NAME.
+  - Dedicated OIDC deployment identity nl-cognitive-mesh-github-actions was created with federation for phoenixvc/cognitive-mesh dev/main branches and production environment.
+  - Deployment workflows were updated to use AZURE_CLIENT_ID, AZURE_TENANT_ID, and AZURE_SUBSCRIPTION_ID instead of AZURE_CREDENTIALS.
   - Post-apply Terragrunt plan reports no changes.
   - Terraform validate succeeds with AzureRM provider 4.80.0 after updating the Cosmos DB connection string output for provider 4.x.
   - The only visible OpenAI resource match is pvc-prod-sluice-aoai in pvc-prod-sluice-rg, supporting the README claim that model access should route through sluice rather than a Cognitive Mesh-owned AOAI resource.
