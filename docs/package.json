@@ -5,24 +5,25 @@
   "main": "tools/build-openapi.js",
   "scripts": {
     "build": "node tools/build-openapi.js",
-    "build:watch": "nodemon --watch spec --ext yaml,yml --exec npm run build",
+    "build:watch": "nodemon --watch spec --ext yaml,yml --exec pnpm run build",
     "validate": "redocly lint openapi.yaml && swagger-cli validate openapi.yaml",
     "lint": "redocly lint openapi.yaml",
-    "test": "npm run validate && npm run test:unit && npm run test:integration",
+    "test": "pnpm run validate && pnpm run test:unit && pnpm run test:integration",
     "test:unit": "jest",
     "test:integration": "jest --passWithNoTests __tests__/integration/",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "test:performance": "npm run test:performance:large-payloads && npm run test:performance:concurrency && npm run test:performance:rate-limiting",
+    "test:performance": "pnpm run test:performance:large-payloads && pnpm run test:performance:concurrency && pnpm run test:performance:rate-limiting",
     "test:performance:large-payloads": "k6 run tests/performance/large-payloads.test.js",
     "test:performance:concurrency": "k6 run tests/performance/concurrency.test.js",
     "test:performance:rate-limiting": "k6 run tests/performance/rate-limiting.test.js",
     "test:edge-cases": "jest __tests__/edge-cases.test.js",
-    "serve": "npx @redocly/cli preview-docs",
+    "serve": "pnpm exec redocly preview-docs",
     "prepare": "husky install",
-    "preview": "npx @redocly/cli preview-docs openapi.yaml",
-    "bundle": "npx @redocly/cli bundle openapi.yaml --output bundled-openapi.yaml"
+    "preview": "pnpm exec redocly preview-docs openapi.yaml",
+    "bundle": "pnpm exec redocly bundle openapi.yaml --output bundled-openapi.yaml"
   },
+  "packageManager": "pnpm@10.33.2",
   "keywords": [
     "openapi",
     "swagger",
@@ -54,7 +55,7 @@
   },
   "husky": {
     "hooks": {
-      "pre-commit": "npm run validate"
+      "pre-commit": "pnpm run validate"
     }
   }
 }

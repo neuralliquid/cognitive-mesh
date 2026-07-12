@@ -14,10 +14,10 @@ FROM node:22.22.1-alpine AS deps
 WORKDIR /app
 
 # Copy package manifests for layer caching
-COPY package.json package-lock.json ./
+COPY package.json pnpm-lock.yaml ./
 
-# Install dependencies (--legacy-peer-deps required per project conventions)
-RUN npm ci --legacy-peer-deps
+# Install dependencies
+RUN corepack enable && pnpm install --frozen-lockfile
 
 # ---------------------------------------------------------------------------
 # Stage 2: Build the Next.js application
@@ -36,7 +36,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 # Build the application (standalone output configured in next.config.js)
-RUN npm run build
+RUN corepack enable && pnpm run build
 
 # ---------------------------------------------------------------------------
 # Stage 3: Production runtime
