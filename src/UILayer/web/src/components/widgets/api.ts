@@ -47,6 +47,11 @@ import type {
   SandwichProcess,
   PhaseAuditEntry,
   CognitiveDebtAssessment,
+  DiscoverChampionsResponse,
+  CommunityPulseResponse,
+  LearningCatalystRequest,
+  LearningCatalystResponse,
+  InnovationSpreadResult,
 } from './types';
 
 type ApiObject = Record<string, unknown>;
@@ -281,4 +286,44 @@ export async function getSandwichAuditTrail(processId: string): Promise<PhaseAud
 
 export async function getSandwichDebt(processId: string): Promise<CognitiveDebtAssessment> {
   return fetchJson(`/api/v1/cognitive-sandwich/${encodeURIComponent(processId)}/debt`);
+}
+
+// ─────────────────────────────── Convener ──────────────────────────────────
+
+export async function discoverConvenerChampions(
+  skill = '',
+  maxResults = 5,
+): Promise<DiscoverChampionsResponse> {
+  const params = new URLSearchParams({ maxResults: String(maxResults) });
+  if (skill.trim()) params.set('skill', skill.trim());
+  return fetchJson(`/api/v1/convener/discover/champions?${params.toString()}`);
+}
+
+export async function getConvenerCommunityPulse(
+  channelId: string,
+  timeframeInDays = 30,
+): Promise<CommunityPulseResponse> {
+  const params = new URLSearchParams({
+    channelId,
+    timeframeInDays: String(timeframeInDays),
+  });
+  return fetchJson(`/api/v1/convener/pulse/community?${params.toString()}`);
+}
+
+export async function getConvenerLearningRecommendations(
+  request: LearningCatalystRequest = {},
+): Promise<LearningCatalystResponse> {
+  return fetchJson('/api/v1/convener/learning/catalysts/recommend', {
+    method: 'POST',
+    body: JSON.stringify({
+      focusAreas: request.focusAreas ?? [],
+      maxRecommendations: request.maxRecommendations ?? 5,
+    }),
+  });
+}
+
+export async function getConvenerInnovationSpread(
+  ideaId: string,
+): Promise<InnovationSpreadResult> {
+  return fetchJson(`/api/v1/convener/innovation/spread/${encodeURIComponent(ideaId)}`);
 }
