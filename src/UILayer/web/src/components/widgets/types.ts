@@ -150,6 +150,26 @@ export interface PsychologicalSafetyScore {
   confidenceLevel: string;
 }
 
+export type AdoptionAction =
+  | 'Login'
+  | 'FeatureUse'
+  | 'FeatureIgnore'
+  | 'Feedback'
+  | 'Override'
+  | 'HelpRequest'
+  | 'WorkflowComplete';
+
+export interface AdoptionTelemetry {
+  telemetryId: string;
+  userId: string;
+  tenantId: string;
+  toolId: string;
+  action: AdoptionAction;
+  timestamp: string;
+  durationMs: number | null;
+  context: string | null;
+}
+
 export interface ImpactReport {
   reportId: string;
   tenantId: string;
@@ -164,11 +184,11 @@ export interface ImpactReport {
 }
 
 export interface ResistanceIndicator {
-  indicatorId: string;
-  pattern: string;
-  severity: string;
-  affectedUsers: number;
-  detectedAt: string;
+  indicatorType: string;
+  severity: number;
+  affectedUserCount: number;
+  firstDetectedAt: string;
+  description: string;
 }
 
 export interface ImpactAssessment {
