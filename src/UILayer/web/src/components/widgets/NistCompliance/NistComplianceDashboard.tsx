@@ -4,8 +4,13 @@ import React, { useState, useEffect, useCallback } from 'react';
 import MaturityGauge from './MaturityGauge';
 import GapAnalysisTable from './GapAnalysisTable';
 import ComplianceTimeline from './ComplianceTimeline';
-import { getNistScore, getNistRoadmap, getNistAuditLog } from '../api';
-import type { NISTScoreResponse, NISTRoadmapResponse, NISTAuditEntry } from '../types';
+import { getNistScore, getNistRoadmap, getNistAuditLog, getNistChecklist } from '../api';
+import type {
+  NISTScoreResponse,
+  NISTRoadmapResponse,
+  NISTAuditEntry,
+  NISTChecklistResponse,
+} from '../types';
 
 interface NistComplianceDashboardProps {
   organizationId?: string;
@@ -23,35 +28,62 @@ export default function NistComplianceDashboard({
   const [scoreData, setScoreData] = useState<NISTScoreResponse | null>(null);
   const [roadmapData, setRoadmapData] = useState<NISTRoadmapResponse | null>(null);
   const [auditEntries, setAuditEntries] = useState<NISTAuditEntry[]>([]);
+  const [checklistData, setChecklistData] = useState<NISTChecklistResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [endpointErrors, setEndpointErrors] = useState<string[]>([]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
-    setError(null);
-    try {
-      const [score, roadmap, audit] = await Promise.all([
-        getNistScore(organizationId),
-        getNistRoadmap(organizationId),
-        getNistAuditLog(organizationId, 50),
-      ]);
-      setScoreData(score);
-      setRoadmapData(roadmap);
-      setAuditEntries(audit.entries ?? []);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to load NIST compliance data.';
-      setError(msg);
-    } finally {
-      setLoading(false);
+    setEndpointErrors([]);
+
+    const results = await Promise.allSettled([
+      getNistScore(organizationId),
+      getNistRoadmap(organizationId),
+      getNistAuditLog(organizationId, 50),
+      getNistChecklist(organizationId),
+    ]);
+
+    const nextErrors: string[] = [];
+    const labels = ['score', 'roadmap', 'audit log', 'checklist'];
+
+    results.forEach((result, index) => {
+      if (result.status === 'rejected') {
+        const reason = result.reason instanceof Error ? result.reason.message : 'request failed';
+        nextErrors.push(`${labels[index]}: ${reason}`);
+      }
+    });
+
+    const [scoreResult, roadmapResult, auditResult, checklistResult] = results;
+
+    if (scoreResult.status === 'fulfilled') {
+      setScoreData(scoreResult.value);
     }
+
+    if (roadmapResult.status === 'fulfilled') {
+      setRoadmapData(roadmapResult.value);
+    }
+
+    if (auditResult.status === 'fulfilled') {
+      setAuditEntries(auditResult.value.entries);
+    }
+
+    if (checklistResult.status === 'fulfilled') {
+      setChecklistData(checklistResult.value);
+    }
+
+    setEndpointErrors(nextErrors);
+    setLoading(false);
   }, [organizationId]);
 
   useEffect(() => {
-    void fetchData();
+    const refreshTimer = window.setTimeout(() => void fetchData(), 0);
+    return () => window.clearTimeout(refreshTimer);
   }, [fetchData]);
 
-  // Loading skeleton
-  if (loading) {
+  const hasAnyData = Boolean(scoreData || roadmapData || auditEntries.length > 0 || checklistData);
+  const failedCompletely = !loading && !hasAnyData && endpointErrors.length > 0;
+
+  if (loading && !hasAnyData) {
     return (
       <div className="space-y-4" aria-busy="true" aria-label="Loading NIST Compliance Dashboard">
         <div className="h-8 w-48 animate-pulse rounded bg-white/10" />
@@ -65,12 +97,11 @@ export default function NistComplianceDashboard({
     );
   }
 
-  // Error state
-  if (error) {
+  if (failedCompletely) {
     return (
       <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-6" role="alert">
         <h2 className="text-lg font-semibold text-red-400">Error loading compliance data</h2>
-        <p className="mt-1 text-sm text-red-300">{error}</p>
+        <p className="mt-1 text-sm text-red-300">{endpointErrors.join('; ')}</p>
         <button
           onClick={() => void fetchData()}
           className="mt-3 rounded bg-red-500/20 px-4 py-1.5 text-sm font-medium text-red-300 hover:bg-red-500/30"
@@ -82,9 +113,14 @@ export default function NistComplianceDashboard({
   }
 
   return (
-    <div className="space-y-6" role="region" aria-label="NIST Compliance Dashboard">
+    <div
+      className="space-y-6"
+      role="region"
+      aria-label="NIST Compliance Dashboard"
+      aria-busy={loading}
+    >
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-white">NIST AI RMF Compliance</h1>
           {scoreData && (
@@ -95,11 +131,44 @@ export default function NistComplianceDashboard({
         </div>
         <button
           onClick={() => void fetchData()}
-          className="rounded bg-white/10 px-3 py-1.5 text-xs font-medium text-gray-300 hover:bg-white/15"
+          disabled={loading}
+          className="rounded bg-white/10 px-3 py-1.5 text-xs font-medium text-gray-300 hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          Refresh
+          {loading ? 'Refreshing...' : 'Refresh'}
         </button>
       </div>
+
+      {endpointErrors.length > 0 && (
+        <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-4" role="status">
+          <h2 className="text-sm font-semibold text-yellow-200">Some live compliance data did not load</h2>
+          <ul className="mt-2 list-inside list-disc space-y-1 text-xs text-yellow-100/90">
+            {endpointErrors.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {checklistData && (
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+          <div className="rounded-lg border border-white/10 bg-white/5 p-4">
+            <p className="text-xs uppercase text-gray-500">Checklist Progress</p>
+            <p className="mt-1 text-2xl font-semibold text-white">
+              {checklistData.completedStatements}/{checklistData.totalStatements}
+            </p>
+          </div>
+          <div className="rounded-lg border border-white/10 bg-white/5 p-4">
+            <p className="text-xs uppercase text-gray-500">Tracked Pillars</p>
+            <p className="mt-1 text-2xl font-semibold text-white">{checklistData.pillars.length}</p>
+          </div>
+          <div className="rounded-lg border border-white/10 bg-white/5 p-4">
+            <p className="text-xs uppercase text-gray-500">Open Statements</p>
+            <p className="mt-1 text-2xl font-semibold text-white">
+              {Math.max(0, checklistData.totalStatements - checklistData.completedStatements)}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Gauges row */}
       {scoreData && (

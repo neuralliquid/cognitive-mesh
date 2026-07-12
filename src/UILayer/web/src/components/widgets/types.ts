@@ -41,9 +41,10 @@ export interface NISTRoadmapResponse {
 
 export interface NISTChecklistStatement {
   statementId: string;
-  text: string;
-  status: string;
+  description: string;
+  isComplete: boolean;
   evidenceCount: number;
+  currentScore: number | null;
 }
 
 export interface NISTChecklistPillar {
@@ -68,7 +69,9 @@ export interface NISTAuditEntry {
 }
 
 export interface NISTAuditLogResponse {
+  organizationId: string;
   entries: NISTAuditEntry[];
+  totalCount: number;
 }
 
 // ──────────────────────────── Adaptive Balance ──────────────────────────────
