@@ -25,12 +25,12 @@ import {
   Workflow,
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
-import { getAdaptiveBalance } from "@/components/widgets/api"
-import type { BalanceResponse } from "@/components/widgets/types"
+import { getAdaptiveBalance, getModelRoutingSummary } from "@/components/widgets/api"
+import type { BalanceResponse, ModelRoutingSummary } from "@/components/widgets/types"
 
 type PanelId = "command" | "metrics" | "main" | "tools" | "activity"
 type PanelMode = "docked" | "floating"
-type WidgetId = "agents" | "reasoning" | "analytics" | "security" | "adaptiveBalance" | "resources" | "activity"
+type WidgetId = "agents" | "reasoning" | "analytics" | "security" | "adaptiveBalance" | "modelRouting" | "resources" | "activity"
 type CommandContext = "agents" | "reasoning" | "analytics" | "security"
 
 interface PanelState {
@@ -105,6 +105,14 @@ const widgets: WidgetDefinition[] = [
     defaultPanel: "main",
   },
   {
+    id: "modelRouting",
+    label: "Model Routing & Cost",
+    description: "Sluice routing status, Docket usage, cost, and policy outcomes.",
+    icon: Workflow,
+    color: "text-cyan-300",
+    defaultPanel: "main",
+  },
+  {
     id: "activity",
     label: "Activity",
     description: "Recent command, diagnostic, and telemetry events.",
@@ -143,7 +151,7 @@ const defaultPanels: PanelState[] = [
     y: 620,
     width: 760,
     height: 300,
-    widgets: ["resources"],
+    widgets: ["modelRouting", "resources"],
   },
   {
     id: "tools",
@@ -281,9 +289,125 @@ function AdaptiveBalanceControlWidget() {
   )
 }
 
+function formatUsd(value: number) {
+  return `$${value.toFixed(value > 0 && value < 0.01 ? 4 : 2)}`
+}
+
+function ModelRoutingControlWidget() {
+  const [summary, setSummary] = useState<ModelRoutingSummary | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const refresh = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      setSummary(await getModelRoutingSummary())
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Model routing data failed to load.")
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    const refreshTimer = window.setTimeout(() => void refresh(), 0)
+    return () => window.clearTimeout(refreshTimer)
+  }, [refresh])
+
+  const latestUsage = summary?.usageEvents[0]
+  const latestRouting = summary?.routingEvents[0]
+  const totalCost = summary?.usageEvents.reduce((total, event) => total + event.estimatedCostUsd, 0) ?? 0
+
+  return (
+    <div className="rounded-md border border-cyan-400/20 bg-cyan-400/[0.04] p-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Workflow className="h-4 w-4 text-cyan-300" />
+          <div>
+            <h4 className="text-sm font-medium text-white">Model Routing & Cost</h4>
+            <p className="mt-0.5 text-xs text-slate-500">Sluice + Docket telemetry loop</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={refresh}
+          disabled={loading}
+          className="rounded p-1 text-slate-400 transition hover:bg-white/10 hover:text-cyan-200 disabled:opacity-50"
+          title="Refresh model routing telemetry"
+        >
+          <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+        </button>
+      </div>
+
+      {loading && (
+        <div className="mt-4 space-y-2" aria-busy="true" aria-label="Loading model routing telemetry">
+          <div className="h-3 w-32 animate-pulse rounded bg-white/10" />
+          <div className="h-2 animate-pulse rounded bg-white/10" />
+          <div className="h-2 w-4/5 animate-pulse rounded bg-white/10" />
+        </div>
+      )}
+
+      {!loading && error && (
+        <div className="mt-3 rounded border border-red-400/20 bg-red-500/10 p-2 text-xs text-red-200" role="alert">
+          {error}
+        </div>
+      )}
+
+      {!loading && summary && (
+        <div className="mt-3 space-y-3">
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div className="rounded border border-white/10 bg-black/20 p-2">
+              <p className="text-slate-500">Sluice</p>
+              <p className={summary.status.sluiceConfigured ? "mt-1 text-emerald-300" : "mt-1 text-amber-300"}>
+                {summary.status.status}
+              </p>
+            </div>
+            <div className="rounded border border-white/10 bg-black/20 p-2">
+              <p className="text-slate-500">Docket</p>
+              <p className="mt-1 text-cyan-200">{summary.status.docketMode}</p>
+            </div>
+            <div className="rounded border border-white/10 bg-black/20 p-2">
+              <p className="text-slate-500">Route</p>
+              <p className="mt-1 truncate text-slate-200">{summary.status.route}</p>
+            </div>
+            <div className="rounded border border-white/10 bg-black/20 p-2">
+              <p className="text-slate-500">Cost</p>
+              <p className="mt-1 text-amber-200">{formatUsd(totalCost)}</p>
+            </div>
+          </div>
+
+          <div className="rounded border border-white/10 bg-black/20 p-2 text-xs">
+            <p className="text-slate-500">Latest routing</p>
+            <p className="mt-1 text-slate-300">{latestRouting?.message ?? "No routing event yet"}</p>
+          </div>
+
+          {latestUsage && (
+            <div className="rounded border border-white/10 bg-black/20 p-2 text-xs">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-slate-500">Latest usage</span>
+                <span className="text-slate-300">{latestUsage.totalTokens} tokens</span>
+              </div>
+              <p className="mt-1 truncate text-slate-400">
+                {latestUsage.provider}/{latestUsage.model} - {latestUsage.policyOutcome}
+              </p>
+            </div>
+          )}
+
+          <p className="truncate text-[11px] text-slate-500">Correlation {summary.status.correlationId}</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function WidgetCard({ id }: { id: WidgetId }) {
   if (id === "adaptiveBalance") {
     return <AdaptiveBalanceControlWidget />
+  }
+
+  if (id === "modelRouting") {
+    return <ModelRoutingControlWidget />
   }
 
   const widget = getWidget(id)
@@ -423,7 +547,8 @@ export default function ControlPage() {
   ])
 
   useEffect(() => {
-    setPanels(readStoredPanels())
+    const restoreTimer = window.setTimeout(() => setPanels(readStoredPanels()), 0)
+    return () => window.clearTimeout(restoreTimer)
   }, [])
 
   useEffect(() => {

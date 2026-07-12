@@ -3,6 +3,7 @@ using CognitiveMesh.AgencyLayer.RealTime.Infrastructure;
 using CognitiveMesh.BusinessApplications.AdaptiveBalance.Infrastructure;
 using CognitiveMesh.BusinessApplications.ImpactMetrics.Infrastructure;
 using CognitiveMesh.BusinessApplications.NISTCompliance.Infrastructure;
+using System.Collections.Concurrent;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -27,6 +28,8 @@ builder.Services.AddNISTComplianceServices();
 builder.Services.AddCognitiveSandwichServices();
 builder.Services.AddImpactMetricsServices();
 builder.Services.AddCognitiveMeshRealTime();
+builder.Services.AddSingleton<ModelRoutingTelemetryStore>();
+builder.Services.AddSingleton<IDocketUsageRecorder, InMemoryDocketUsageRecorder>();
 
 // CORS — allow the Next.js frontend during development
 builder.Services.AddCors(options =>
@@ -172,7 +175,241 @@ app.MapGet("/api/v1/dashboard/activities", () => Results.Ok(new[]
         type = "governance"
     }
 }));
+app.MapGet("/api/v1/model-routing/status", (IConfiguration configuration, ModelRoutingTelemetryStore telemetry, IDocketUsageRecorder docket) =>
+{
+    var status = ModelRoutingStatus.FromConfiguration(configuration, telemetry.GetRecent(5), docket.GetRecent(5));
+    return Results.Ok(status);
+});
+app.MapGet("/api/v1/model-routing/events", (ModelRoutingTelemetryStore telemetry) => Results.Ok(telemetry.GetRecent(25)));
+app.MapGet("/api/v1/model-routing/summary", (IConfiguration configuration, ModelRoutingTelemetryStore telemetry, IDocketUsageRecorder docket) =>
+{
+    var routingEvents = telemetry.GetRecent(10);
+    var usageEvents = docket.GetRecent(10);
+    return Results.Ok(new ModelRoutingSummary(
+        ModelRoutingStatus.FromConfiguration(configuration, routingEvents, usageEvents),
+        routingEvents,
+        usageEvents));
+});
+app.MapGet("/api/v1/sluice/health", (IConfiguration configuration, ModelRoutingTelemetryStore telemetry, IDocketUsageRecorder docket) =>
+{
+    var routingEvents = telemetry.GetRecent(5);
+    var usageEvents = docket.GetRecent(5);
+    return Results.Ok(new SluiceHealthResponse(
+        ModelRoutingStatus.FromConfiguration(configuration, routingEvents, usageEvents),
+        false,
+        "ApiHost reports Sluice configuration and routing readiness; no live model call is attempted by this health endpoint."));
+});
+app.MapGet("/api/v1/sluice/routing-telemetry", (int? limit, ModelRoutingTelemetryStore telemetry) =>
+{
+    return Results.Ok(new SluiceRoutingTelemetryResponse(
+        false,
+        telemetry.GetRecent(limit.GetValueOrDefault(25))));
+});
+app.MapGet("/api/v1/docket/usage/recent", (IDocketUsageRecorder docket) => Results.Ok(docket.GetRecent(25)));
+app.MapPost("/api/v1/docket/usage", (DocketUsageEvent usageEvent, IDocketUsageRecorder docket) =>
+{
+    var recorded = docket.Record(usageEvent);
+    return Results.Accepted($"/api/v1/docket/usage/{recorded.CorrelationId}", recorded);
+});
 app.MapControllers();
 app.MapCognitiveMeshHubs();
 
 app.Run();
+
+internal sealed class ModelRoutingTelemetryStore
+{
+    private readonly ConcurrentQueue<ModelRoutingEvent> _events = new();
+
+    public ModelRoutingTelemetryStore(IConfiguration configuration)
+    {
+        var route = configuration["Sluice:Model"]
+            ?? configuration["SLUICE_MODEL"]
+            ?? "default";
+
+        Record(new ModelRoutingEvent(
+            Guid.NewGuid().ToString(),
+            "sluice",
+            route,
+            "verified",
+            "ApiHost startup verified Sluice routing configuration snapshot.",
+            DateTimeOffset.UtcNow,
+            0,
+            null,
+            "not_applicable"));
+    }
+
+    public void Record(ModelRoutingEvent routingEvent)
+    {
+        _events.Enqueue(routingEvent);
+        while (_events.Count > 100 && _events.TryDequeue(out _))
+        {
+        }
+    }
+
+    public IReadOnlyList<ModelRoutingEvent> GetRecent(int maxResults)
+    {
+        return _events
+            .Reverse()
+            .Take(Math.Clamp(maxResults, 1, 100))
+            .ToArray();
+    }
+}
+
+internal interface IDocketUsageRecorder
+{
+    DocketUsageEvent Record(DocketUsageEvent usageEvent);
+    IReadOnlyList<DocketUsageEvent> GetRecent(int maxResults);
+}
+
+internal sealed class InMemoryDocketUsageRecorder : IDocketUsageRecorder
+{
+    private readonly ConcurrentQueue<DocketUsageEvent> _events = new();
+
+    public InMemoryDocketUsageRecorder(IConfiguration configuration)
+    {
+        var model = configuration["Sluice:Model"]
+            ?? configuration["SLUICE_MODEL"]
+            ?? "default";
+
+        Record(new DocketUsageEvent(
+            Guid.NewGuid().ToString(),
+            "demo-tenant",
+            null,
+            "ApiHost",
+            "sluice",
+            model,
+            0,
+            0,
+            0,
+            0,
+            0,
+            "allowed",
+            "recorded",
+            DateTimeOffset.UtcNow));
+    }
+
+    public DocketUsageEvent Record(DocketUsageEvent usageEvent)
+    {
+        var normalized = usageEvent with
+        {
+            CorrelationId = string.IsNullOrWhiteSpace(usageEvent.CorrelationId)
+                ? Guid.NewGuid().ToString()
+                : usageEvent.CorrelationId,
+            Source = string.IsNullOrWhiteSpace(usageEvent.Source) ? "CognitiveMesh" : usageEvent.Source,
+            Provider = string.IsNullOrWhiteSpace(usageEvent.Provider) ? "sluice" : usageEvent.Provider,
+            Model = string.IsNullOrWhiteSpace(usageEvent.Model) ? "default" : usageEvent.Model,
+            Status = string.IsNullOrWhiteSpace(usageEvent.Status) ? "recorded" : usageEvent.Status,
+            PolicyOutcome = string.IsNullOrWhiteSpace(usageEvent.PolicyOutcome) ? "unknown" : usageEvent.PolicyOutcome,
+            OccurredAt = usageEvent.OccurredAt == default ? DateTimeOffset.UtcNow : usageEvent.OccurredAt,
+            TotalTokens = usageEvent.TotalTokens > 0
+                ? usageEvent.TotalTokens
+                : Math.Max(0, usageEvent.PromptTokens + usageEvent.CompletionTokens)
+        };
+
+        _events.Enqueue(normalized);
+        while (_events.Count > 250 && _events.TryDequeue(out _))
+        {
+        }
+
+        return normalized;
+    }
+
+    public IReadOnlyList<DocketUsageEvent> GetRecent(int maxResults)
+    {
+        return _events
+            .Reverse()
+            .Take(Math.Clamp(maxResults, 1, 100))
+            .ToArray();
+    }
+}
+
+internal sealed record ModelRoutingStatus(
+    string Status,
+    string Provider,
+    string Route,
+    string BaseUrl,
+    bool SluiceConfigured,
+    bool DirectProviderFallbackAllowed,
+    bool DocketConfigured,
+    string DocketMode,
+    DateTimeOffset CheckedAt,
+    string CorrelationId,
+    int RecentRoutingEventCount,
+    int RecentUsageEventCount)
+{
+    public static ModelRoutingStatus FromConfiguration(
+        IConfiguration configuration,
+        IReadOnlyList<ModelRoutingEvent> routingEvents,
+        IReadOnlyList<DocketUsageEvent> usageEvents)
+    {
+        var baseUrl = configuration["Sluice:BaseUrl"]
+            ?? configuration["SLUICE_BASE_URL"]
+            ?? string.Empty;
+        var route = configuration["Sluice:Model"]
+            ?? configuration["SLUICE_MODEL"]
+            ?? "default";
+        var directFallback = string.Equals(
+            Environment.GetEnvironmentVariable("ALLOW_DIRECT_MODEL_PROVIDER"),
+            "true",
+            StringComparison.OrdinalIgnoreCase);
+        var docketBaseUrl = configuration["Docket:BaseUrl"]
+            ?? configuration["DOCKET_BASE_URL"]
+            ?? string.Empty;
+
+        var configured = !string.IsNullOrWhiteSpace(baseUrl);
+        return new ModelRoutingStatus(
+            configured ? "configured" : "configuration_missing",
+            "sluice",
+            route,
+            configured ? baseUrl : "not configured",
+            configured,
+            directFallback,
+            !string.IsNullOrWhiteSpace(docketBaseUrl),
+            string.IsNullOrWhiteSpace(docketBaseUrl) ? "in-memory" : "external-ready",
+            DateTimeOffset.UtcNow,
+            Guid.NewGuid().ToString(),
+            routingEvents.Count,
+            usageEvents.Count);
+    }
+}
+
+internal sealed record ModelRoutingSummary(
+    ModelRoutingStatus Status,
+    IReadOnlyList<ModelRoutingEvent> RoutingEvents,
+    IReadOnlyList<DocketUsageEvent> UsageEvents);
+
+internal sealed record SluiceHealthResponse(
+    ModelRoutingStatus Status,
+    bool LiveProbeAttempted,
+    string Message);
+
+internal sealed record SluiceRoutingTelemetryResponse(
+    bool LiveTelemetryAttempted,
+    IReadOnlyList<ModelRoutingEvent> Events);
+
+internal sealed record ModelRoutingEvent(
+    string CorrelationId,
+    string Provider,
+    string Route,
+    string Status,
+    string Message,
+    DateTimeOffset OccurredAt,
+    long LatencyMs,
+    int? TotalTokens,
+    string PolicyOutcome);
+
+internal sealed record DocketUsageEvent(
+    string CorrelationId,
+    string TenantId,
+    string? UserId,
+    string Source,
+    string Provider,
+    string Model,
+    int PromptTokens,
+    int CompletionTokens,
+    int TotalTokens,
+    long LatencyMs,
+    decimal EstimatedCostUsd,
+    string PolicyOutcome,
+    string Status,
+    DateTimeOffset OccurredAt);

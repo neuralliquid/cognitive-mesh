@@ -334,3 +334,55 @@ export interface InnovationSpreadResult {
   adoptionLineage: AdoptionEvent[];
   phase: string | number;
 }
+
+// ───────────────────────── Model Routing & Docket ──────────────────────────
+
+export interface ModelRoutingStatus {
+  status: string;
+  provider: string;
+  route: string;
+  baseUrl: string;
+  sluiceConfigured: boolean;
+  directProviderFallbackAllowed: boolean;
+  docketConfigured: boolean;
+  docketMode: string;
+  checkedAt: string;
+  correlationId: string;
+  recentRoutingEventCount: number;
+  recentUsageEventCount: number;
+}
+
+export interface ModelRoutingEvent {
+  correlationId: string;
+  provider: string;
+  route: string;
+  status: string;
+  message: string;
+  occurredAt: string;
+  latencyMs: number;
+  totalTokens: number | null;
+  policyOutcome: string;
+}
+
+export interface DocketUsageEvent {
+  correlationId: string;
+  tenantId: string;
+  userId: string | null;
+  source: string;
+  provider: string;
+  model: string;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  latencyMs: number;
+  estimatedCostUsd: number;
+  policyOutcome: string;
+  status: string;
+  occurredAt: string;
+}
+
+export interface ModelRoutingSummary {
+  status: ModelRoutingStatus;
+  routingEvents: ModelRoutingEvent[];
+  usageEvents: DocketUsageEvent[];
+}

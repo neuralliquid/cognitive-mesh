@@ -117,6 +117,20 @@ export function Sidebar() {
         ))}
       </nav>
 
+      {/* Command Center launcher */}
+      <div className="border-t border-white/10 px-3 py-3">
+        <Link
+          href="/control"
+          className={`flex w-full items-center gap-2 rounded-md border border-cyan-500/30 bg-cyan-500/10 px-2 py-2 text-xs font-medium text-cyan-200 transition-colors hover:bg-cyan-500/20 hover:text-white ${
+            collapsed ? "justify-center" : ""
+          }`}
+          title="Launch Command Center"
+        >
+          <PanelTop size={16} />
+          {!collapsed && <span>Command Center</span>}
+        </Link>
+      </div>
+
       {/* Role indicator */}
       {user && (
         <div className="space-y-2 border-t border-white/10 px-3 py-3">
