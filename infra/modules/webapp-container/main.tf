@@ -3,6 +3,13 @@ data "azurerm_container_registry" "shared" {
   resource_group_name = var.shared_acr_resource_group_name
 }
 
+locals {
+  api_cors_app_settings = {
+    for index, origin in var.api_allowed_origins :
+    "Cors__AllowedOrigins__${index}" => origin
+  }
+}
+
 resource "azurerm_service_plan" "this" {
   name                = "${var.project_name}-apps-plan-${var.environment}"
   location            = var.location
@@ -38,11 +45,11 @@ resource "azurerm_linux_web_app" "api" {
     }
   }
 
-  app_settings = {
+  app_settings = merge({
     ASPNETCORE_URLS                     = "http://+:${var.api_port}"
     WEBSITES_ENABLE_APP_SERVICE_STORAGE = "false"
     WEBSITES_PORT                       = tostring(var.api_port)
-  }
+  }, local.api_cors_app_settings)
 
   tags = merge(var.common_tags, {
     Module = "webapp-container"
@@ -71,11 +78,11 @@ resource "azurerm_linux_web_app_slot" "api_staging" {
     }
   }
 
-  app_settings = {
+  app_settings = merge({
     ASPNETCORE_URLS                     = "http://+:${var.api_port}"
     WEBSITES_ENABLE_APP_SERVICE_STORAGE = "false"
     WEBSITES_PORT                       = tostring(var.api_port)
-  }
+  }, local.api_cors_app_settings)
 
   tags = merge(var.common_tags, {
     Module = "webapp-container"

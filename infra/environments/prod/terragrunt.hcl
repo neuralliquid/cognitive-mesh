@@ -34,6 +34,14 @@ inputs = {
   api_container_image      = "cognitive-mesh-api:latest"
   frontend_container_image = "cognitive-mesh-frontend:latest"
   api_public_base_url      = "https://api.cognitivemesh.neuralliquid.ai"
+  api_allowed_origins = [
+    "https://cognitive-mesh-frontend-prod.azurewebsites.net",
+    "https://cognitive-mesh-frontend-prod-staging.azurewebsites.net",
+    "https://cognitivemesh.neuralliquid.ai",
+    "https://app.cognitivemesh.neuralliquid.ai",
+    "https://frontend.cognitivemesh.neuralliquid.ai",
+    "https://staging.cognitivemesh.neuralliquid.ai",
+  ]
 
   common_tags = {
     Project     = "CognitiveMesh"

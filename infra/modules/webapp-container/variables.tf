@@ -79,6 +79,12 @@ variable "api_base_url" {
   type        = string
 }
 
+variable "api_allowed_origins" {
+  description = "Allowed browser origins for API CORS."
+  type        = list(string)
+  default     = []
+}
+
 variable "common_tags" {
   description = "Common tags applied to resources."
   type        = map(string)

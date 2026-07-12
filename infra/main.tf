@@ -182,6 +182,7 @@ module "webapps" {
   api_image_name                 = var.api_container_image
   frontend_image_name            = var.frontend_container_image
   api_base_url                   = var.api_public_base_url
+  api_allowed_origins            = var.api_allowed_origins
   common_tags                    = local.tags
 }
 

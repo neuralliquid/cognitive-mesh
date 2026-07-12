@@ -261,6 +261,12 @@ variable "api_public_base_url" {
   default     = "https://api.cognitivemesh.neuralliquid.ai"
 }
 
+variable "api_allowed_origins" {
+  description = "Allowed browser origins for API CORS."
+  type        = list(string)
+  default     = []
+}
+
 # ---------- Networking ----------
 
 variable "vnet_address_space" {
