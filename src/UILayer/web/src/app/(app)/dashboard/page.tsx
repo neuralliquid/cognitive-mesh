@@ -5,7 +5,7 @@ import { useDashboardStore } from "@/stores"
 import { SkeletonDashboard } from "@/components/Skeleton"
 
 export default function DashboardPage() {
-  const { layers, metrics, systemStatus, loading, error, fetchAll } =
+  const { layers, metrics, systemStatus, loading, error, lastFailures, fetchAll } =
     useDashboardStore()
 
   useEffect(() => {
@@ -16,23 +16,37 @@ export default function DashboardPage() {
     return <SkeletonDashboard />
   }
 
-  if (error) {
-    return (
-      <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-6 text-center">
-        <p className="text-sm text-red-400">{error}</p>
-        <button
-          onClick={fetchAll}
-          className="mt-3 rounded bg-cyan-600 px-4 py-1.5 text-sm text-white hover:bg-cyan-500"
-        >
-          Retry
-        </button>
-      </div>
-    )
-  }
-
   return (
     <div className="space-y-6">
       <h1 className="text-xl font-bold text-white">Dashboard</h1>
+
+      {error && (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-sm font-medium text-amber-300">{error}</p>
+              {lastFailures.length > 0 && (
+                <div className="mt-2 space-y-1 text-xs text-amber-100/80">
+                  {lastFailures.map((failure) => (
+                    <p key={`${failure.endpoint}-${failure.correlationId}`}>
+                      {failure.endpoint}
+                      {failure.status ? ` returned ${failure.status}` : ""}
+                      {" "}
+                      ({failure.elapsedMs}ms, correlation {failure.correlationId})
+                    </p>
+                  ))}
+                </div>
+              )}
+            </div>
+            <button
+              onClick={fetchAll}
+              className="rounded bg-cyan-600 px-4 py-1.5 text-sm text-white hover:bg-cyan-500"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Metrics row */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
