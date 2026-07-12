@@ -1,16 +1,22 @@
 "use client"
 
+import { usePathname } from "next/navigation"
 import { Sidebar, TopBar } from "@/components/Navigation"
 import { ProtectedRoute } from "@/components/ProtectedRoute"
 import { CommandPalette } from "@/components/shared/CommandPalette"
 import { usePreferencesStore } from "@/stores"
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname()
   const collapsed = usePreferencesStore((s) => s.sidebarCollapsed)
+  const fullscreenControl = pathname === "/control"
 
   return (
     <ProtectedRoute>
       <CommandPalette />
+      {fullscreenControl ? (
+        <main className="min-h-screen bg-slate-950">{children}</main>
+      ) : (
       <div className="flex min-h-screen">
         <Sidebar />
         <div
@@ -22,6 +28,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <main className="flex-1 p-6">{children}</main>
         </div>
       </div>
+      )}
     </ProtectedRoute>
   )
 }
