@@ -26,6 +26,16 @@ Weighted evaluation of agent orchestration approaches across **4 internal reposi
 | [10 — Agent Prompt Patterns](10-agent-prompt-patterns/) | Actual prompts, system instructions, and behavioral rules used by major platforms |
 | [Appendices](appendices/) | Evidence index, glossary, decision tree, migration risk matrix |
 
+## Agent Contract Gates
+
+The benchmark harness now has a machine-readable contract surface in
+[`../spec/agent-contracts/`](../spec/agent-contracts/). The implemented scope is
+schemas, shared gate identifiers, and reference examples. Lifecycle promotion
+from `specified` through `promoted` is not automated yet; it still requires the
+benchmark gates to run and evidence to be attached manually. Use this evaluation
+package as the evidence source for latency, fan-out throughput, failure
+recovery, and MAKER long-horizon gates.
+
 ## How to Read This Documentation
 
 **Scoring**: All metrics use a 1.0–5.0 decimal scale. Percentage equivalents are `(score / 5) × 100`. Weighted totals apply profile-specific weights to each metric, then convert to percentage.
