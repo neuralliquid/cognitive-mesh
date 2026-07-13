@@ -164,6 +164,11 @@ Current production behavior:
 - `pnpm run test -- --runInBand` succeeded with 18 suites and 137 tests passed; existing React `act(...)` console warning observed.
 - `pnpm run build` succeeded; existing Style Dictionary and Next config/deprecation warnings remain.
 - `gh auth status` now includes `admin:org`, `read:packages`, `repo`, and `user`, but all four selected GitHub App repository-coverage API calls still return HTTP 403 because GitHub requires a PAT, GitHub App-authorized token, or basic auth for that endpoint.
+- Classic PAT verification cleared the active GitHub App coverage gate:
+  - Renovate (`101140936`) includes `phoenixvc/cognitive-mesh`.
+  - Stilla (`116485390`) includes `phoenixvc/cognitive-mesh`.
+  - Devin (`68460896`) does not include `phoenixvc/cognitive-mesh`, accepted because Devin is inactive for this transfer.
+  - phoenixvc-actions-runner (`111911804`) has zero repositories, accepted because the runner app is not currently deployed.
 
 ## Org Migration Tasks After Sluice Routing
 
@@ -236,7 +241,6 @@ blockers:
   - CogMesh-to-Docket service auth is identifiable but not wired; Docket supports Azure AD bearer tokens and optional X-API-Key, but CogMesh does not currently send either to Docket.
   - CogMesh-to-Docket production ingestion contract is not compatible yet; canonical Docket does not expose a model-usage ingestion endpoint matching CogMesh's local DocketUsageEvent.
   - CogMesh-to-Sluice auth scheme still needs production confirmation.
-  - Selected GitHub App repository coverage still needs manual org UI review or a PAT/GitHub App-authorized token; OAuth user scope did not clear the API blocker.
   - Full prod Terragrunt plan is not apply-safe yet because frontend App Service drift would remove existing frontend settings and move images back to Terraform-managed values.
 risks:
   - Applying the full prod plan without drift reconciliation could remove frontend app settings managed outside Terraform.
@@ -248,7 +252,6 @@ rollback_state:
   - Cognitive Mesh changes remain local documentation and Terraform configuration only.
 next_action:
   - Define and implement CogMesh-to-Docket authenticated production usage ingestion before setting DOCKET_BASE_URL to https://docket.phoenixvc.tech.
-  - Confirm selected GitHub App repository coverage manually in GitHub org settings or with a token type accepted by GitHub's installation repositories endpoint.
   - Reconcile frontend App Service Terraform drift before any full prod apply.
   - Apply Sluice routing settings only after Sluice auth is confirmed and `COGMESH_SLUICE_BASE_URL` plus `COGMESH_SLUICE_API_KEY_SECRET_URI` are supplied.
   - Continue CogMesh org migration only after Sluice/Docket routing blockers are resolved.
