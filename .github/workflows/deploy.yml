@@ -123,6 +123,14 @@ jobs:
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Configure staging slot container
+        env:
+          COGMESH_DOCKET_BASE_URL: ${{ vars.COGMESH_DOCKET_BASE_URL }}
+          COGMESH_DOCKET_AUDIENCE: ${{ vars.COGMESH_DOCKET_AUDIENCE }}
+          COGMESH_DOCKET_SCOPE: ${{ vars.COGMESH_DOCKET_SCOPE }}
+          COGMESH_SLUICE_BASE_URL: ${{ vars.COGMESH_SLUICE_BASE_URL }}
+          COGMESH_SLUICE_MODEL: ${{ vars.COGMESH_SLUICE_MODEL || 'default' }}
+          COGMESH_SLUICE_MAX_TOKENS: ${{ vars.COGMESH_SLUICE_MAX_TOKENS || '16384' }}
+          COGMESH_SLUICE_API_KEY_SECRET_URI: ${{ vars.COGMESH_SLUICE_API_KEY_SECRET_URI }}
         run: |
           az webapp config container set \
             --resource-group "${{ vars.AZURE_WEBAPP_RESOURCE_GROUP }}" \
@@ -142,22 +150,22 @@ jobs:
             Cors__AllowedOrigins__6=https://frontend.cognitivemesh.neuralliquid.ai
             ALLOW_DIRECT_MODEL_PROVIDER=false
           )
-          if [ -n "${{ vars.COGMESH_DOCKET_BASE_URL }}" ]; then
-            app_settings+=(DOCKET_BASE_URL="${{ vars.COGMESH_DOCKET_BASE_URL }}")
+          if [ -n "${COGMESH_DOCKET_BASE_URL}" ]; then
+            app_settings+=(DOCKET_BASE_URL="${COGMESH_DOCKET_BASE_URL}")
           fi
-          if [ -n "${{ vars.COGMESH_DOCKET_AUDIENCE }}" ]; then
-            app_settings+=(DOCKET_AUDIENCE="${{ vars.COGMESH_DOCKET_AUDIENCE }}")
+          if [ -n "${COGMESH_DOCKET_AUDIENCE}" ]; then
+            app_settings+=(DOCKET_AUDIENCE="${COGMESH_DOCKET_AUDIENCE}")
           fi
-          if [ -n "${{ vars.COGMESH_DOCKET_SCOPE }}" ]; then
-            app_settings+=(DOCKET_SCOPE="${{ vars.COGMESH_DOCKET_SCOPE }}")
+          if [ -n "${COGMESH_DOCKET_SCOPE}" ]; then
+            app_settings+=(DOCKET_SCOPE="${COGMESH_DOCKET_SCOPE}")
           fi
-          if [ -n "${{ vars.COGMESH_SLUICE_BASE_URL }}" ]; then
-            app_settings+=(SLUICE_BASE_URL="${{ vars.COGMESH_SLUICE_BASE_URL }}")
-            app_settings+=(SLUICE_MODEL="${{ vars.COGMESH_SLUICE_MODEL || 'default' }}")
-            app_settings+=(SLUICE_MAX_TOKENS="${{ vars.COGMESH_SLUICE_MAX_TOKENS || '16384' }}")
+          if [ -n "${COGMESH_SLUICE_BASE_URL}" ]; then
+            app_settings+=(SLUICE_BASE_URL="${COGMESH_SLUICE_BASE_URL}")
+            app_settings+=(SLUICE_MODEL="${COGMESH_SLUICE_MODEL}")
+            app_settings+=(SLUICE_MAX_TOKENS="${COGMESH_SLUICE_MAX_TOKENS}")
           fi
-          if [ -n "${{ vars.COGMESH_SLUICE_API_KEY_SECRET_URI }}" ]; then
-            app_settings+=(SLUICE_API_KEY="@Microsoft.KeyVault(SecretUri=${{ vars.COGMESH_SLUICE_API_KEY_SECRET_URI }})")
+          if [ -n "${COGMESH_SLUICE_API_KEY_SECRET_URI}" ]; then
+            app_settings+=(SLUICE_API_KEY="@Microsoft.KeyVault(SecretUri=${COGMESH_SLUICE_API_KEY_SECRET_URI})")
           fi
           az webapp config appsettings set \
             --resource-group "${{ vars.AZURE_WEBAPP_RESOURCE_GROUP }}" \
@@ -203,6 +211,14 @@ jobs:
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Configure production container
+        env:
+          COGMESH_DOCKET_BASE_URL: ${{ vars.COGMESH_DOCKET_BASE_URL }}
+          COGMESH_DOCKET_AUDIENCE: ${{ vars.COGMESH_DOCKET_AUDIENCE }}
+          COGMESH_DOCKET_SCOPE: ${{ vars.COGMESH_DOCKET_SCOPE }}
+          COGMESH_SLUICE_BASE_URL: ${{ vars.COGMESH_SLUICE_BASE_URL }}
+          COGMESH_SLUICE_MODEL: ${{ vars.COGMESH_SLUICE_MODEL || 'default' }}
+          COGMESH_SLUICE_MAX_TOKENS: ${{ vars.COGMESH_SLUICE_MAX_TOKENS || '16384' }}
+          COGMESH_SLUICE_API_KEY_SECRET_URI: ${{ vars.COGMESH_SLUICE_API_KEY_SECRET_URI }}
         run: |
           az webapp config container set \
             --resource-group "${{ vars.AZURE_WEBAPP_RESOURCE_GROUP }}" \
@@ -221,22 +237,22 @@ jobs:
             Cors__AllowedOrigins__6=https://frontend.cognitivemesh.neuralliquid.ai
             ALLOW_DIRECT_MODEL_PROVIDER=false
           )
-          if [ -n "${{ vars.COGMESH_DOCKET_BASE_URL }}" ]; then
-            app_settings+=(DOCKET_BASE_URL="${{ vars.COGMESH_DOCKET_BASE_URL }}")
+          if [ -n "${COGMESH_DOCKET_BASE_URL}" ]; then
+            app_settings+=(DOCKET_BASE_URL="${COGMESH_DOCKET_BASE_URL}")
           fi
-          if [ -n "${{ vars.COGMESH_DOCKET_AUDIENCE }}" ]; then
-            app_settings+=(DOCKET_AUDIENCE="${{ vars.COGMESH_DOCKET_AUDIENCE }}")
+          if [ -n "${COGMESH_DOCKET_AUDIENCE}" ]; then
+            app_settings+=(DOCKET_AUDIENCE="${COGMESH_DOCKET_AUDIENCE}")
           fi
-          if [ -n "${{ vars.COGMESH_DOCKET_SCOPE }}" ]; then
-            app_settings+=(DOCKET_SCOPE="${{ vars.COGMESH_DOCKET_SCOPE }}")
+          if [ -n "${COGMESH_DOCKET_SCOPE}" ]; then
+            app_settings+=(DOCKET_SCOPE="${COGMESH_DOCKET_SCOPE}")
           fi
-          if [ -n "${{ vars.COGMESH_SLUICE_BASE_URL }}" ]; then
-            app_settings+=(SLUICE_BASE_URL="${{ vars.COGMESH_SLUICE_BASE_URL }}")
-            app_settings+=(SLUICE_MODEL="${{ vars.COGMESH_SLUICE_MODEL || 'default' }}")
-            app_settings+=(SLUICE_MAX_TOKENS="${{ vars.COGMESH_SLUICE_MAX_TOKENS || '16384' }}")
+          if [ -n "${COGMESH_SLUICE_BASE_URL}" ]; then
+            app_settings+=(SLUICE_BASE_URL="${COGMESH_SLUICE_BASE_URL}")
+            app_settings+=(SLUICE_MODEL="${COGMESH_SLUICE_MODEL}")
+            app_settings+=(SLUICE_MAX_TOKENS="${COGMESH_SLUICE_MAX_TOKENS}")
           fi
-          if [ -n "${{ vars.COGMESH_SLUICE_API_KEY_SECRET_URI }}" ]; then
-            app_settings+=(SLUICE_API_KEY="@Microsoft.KeyVault(SecretUri=${{ vars.COGMESH_SLUICE_API_KEY_SECRET_URI }})")
+          if [ -n "${COGMESH_SLUICE_API_KEY_SECRET_URI}" ]; then
+            app_settings+=(SLUICE_API_KEY="@Microsoft.KeyVault(SecretUri=${COGMESH_SLUICE_API_KEY_SECRET_URI})")
           fi
           az webapp config appsettings set \
             --resource-group "${{ vars.AZURE_WEBAPP_RESOURCE_GROUP }}" \
