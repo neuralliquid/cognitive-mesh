@@ -184,6 +184,7 @@ module "webapps" {
   api_base_url                    = var.api_public_base_url
   api_allowed_origins             = var.api_allowed_origins
   api_sluice_base_url             = var.api_sluice_base_url
+  api_sluice_api_key_secret_uri   = var.api_sluice_api_key_secret_uri
   api_sluice_model                = var.api_sluice_model
   api_sluice_max_tokens           = var.api_sluice_max_tokens
   api_docket_base_url             = var.api_docket_base_url

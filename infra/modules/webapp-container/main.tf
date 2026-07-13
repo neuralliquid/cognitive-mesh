@@ -13,14 +13,23 @@ locals {
     ALLOW_DIRECT_MODEL_PROVIDER = "false"
   }
 
-  api_optional_routing_app_settings = {
-    for key, value in {
-      SLUICE_BASE_URL   = var.api_sluice_base_url
-      SLUICE_MODEL      = var.api_sluice_model
-      SLUICE_MAX_TOKENS = tostring(var.api_sluice_max_tokens)
-      DOCKET_BASE_URL   = var.api_docket_base_url
-    } : key => value if value != ""
+  api_sluice_secret_app_settings = var.api_sluice_api_key_secret_uri == "" ? {} : {
+    SLUICE_API_KEY = "@Microsoft.KeyVault(SecretUri=${var.api_sluice_api_key_secret_uri})"
   }
+
+  api_sluice_app_settings = var.api_sluice_base_url == "" ? {} : merge({
+    SLUICE_BASE_URL   = var.api_sluice_base_url
+    SLUICE_MODEL      = var.api_sluice_model
+    SLUICE_MAX_TOKENS = tostring(var.api_sluice_max_tokens)
+    },
+    local.api_sluice_secret_app_settings
+  )
+
+  api_docket_app_settings = var.api_docket_base_url == "" ? {} : {
+    DOCKET_BASE_URL = var.api_docket_base_url
+  }
+
+  api_optional_routing_app_settings = merge(local.api_sluice_app_settings, local.api_docket_app_settings)
 }
 
 resource "azurerm_service_plan" "this" {

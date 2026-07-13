@@ -268,7 +268,13 @@ variable "api_allowed_origins" {
 }
 
 variable "api_sluice_base_url" {
-  description = "Sluice gateway base URL for Cognitive Mesh model egress. Keep empty until the production endpoint and auth are confirmed."
+  description = "Sluice gateway base URL for Cognitive Mesh model egress. Keep empty until the production endpoint and API key secret URI are confirmed."
+  type        = string
+  default     = ""
+}
+
+variable "api_sluice_api_key_secret_uri" {
+  description = "Key Vault secret URI for the Sluice API key. The App Service receives this as a Key Vault reference, not a raw secret value."
   type        = string
   default     = ""
 }
