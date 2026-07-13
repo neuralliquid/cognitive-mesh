@@ -23,7 +23,7 @@
     "preview": "pnpm exec redocly preview-docs openapi.yaml",
     "bundle": "pnpm exec redocly bundle openapi.yaml --output bundled-openapi.yaml"
   },
-  "packageManager": "pnpm@10.34.4",
+  "packageManager": "pnpm@10.34.5",
   "keywords": [
     "openapi",
     "swagger",
