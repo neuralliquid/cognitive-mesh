@@ -303,7 +303,6 @@ Updated deployment decision:
 - `staging` is a production slot, not an independent long-lived staging environment.
 - Target domain pattern for now:
   - `staging.cognitivemesh.neuralliquid.ai`
-  - `prod.cognitivemesh.neuralliquid.ai`
   - `cognitivemesh.neuralliquid.ai`
 - Eliminate or disable expensive nonessential resources for the initial deployment.
 - DNS is currently managed in Mystira workspace Terraform; this can be used as a temporary bridge, but NeuralLiquid-owned DNS/deployment state should move to NeuralLiquid-owned infrastructure before long-term production.

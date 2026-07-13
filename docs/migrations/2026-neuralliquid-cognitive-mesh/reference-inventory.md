@@ -73,7 +73,7 @@ Action: keep PhoenixVC ownership where these are true dependencies and clarify t
   - Classification: blocker.
   - Action: do not point CogMesh production at the old `pvc-shared-costops-api` URL as the canonical Docket dependency. Get `phoenixvc/docket` live under its canonical API URL/domain first, then set `DOCKET_BASE_URL`.
 - Direct provider configuration:
-  - `providersettings.json`, Kubernetes config, and local tooling still expose Azure OpenAI/OpenAI-oriented variable names.
+  - `providersettings.json`, local docker-compose/k8s manifests, and local tooling still expose Azure OpenAI/OpenAI-oriented variable names.
   - Classification: migration-sensitive direct-provider reference.
   - Action: keep provider secrets quarantined and route production model egress through Sluice; allow direct-provider configuration only as a local shim or explicitly approved exception.
 

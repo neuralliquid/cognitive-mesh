@@ -179,9 +179,10 @@ work_completed:
       - SLUICE_MODEL
       - SLUICE_MAX_TOKENS
       - optional DOCKET_BASE_URL
+      - staging.cognitivemesh.neuralliquid.ai CORS origin
   - Set prod Sluice base URL to the verified LiteLLM gateway:
       - https://litellm.sluice.phoenixvc.tech
-  - Left DOCKET_BASE_URL empty because shared-costops has been renamed to Docket and the canonical Docket service is not yet live.
+  - Left DOCKET_BASE_URL empty because the canonical Docket endpoint is live but not approved for CogMesh until auth and usage-ingestion semantics are confirmed.
   - Updated manifest and this handoff with the Docket blocker.
   - Configured canonical Docket API hostname:
       - docket.phoenixvc.tech CNAME -> pvc-shared-costops-api.ashymushroom-1f7d8121.southafricanorth.azurecontainerapps.io
@@ -216,14 +217,14 @@ tests_run:
   - terragrunt plan -no-color -target='module.webapps[0].azurerm_linux_web_app.api' -target='module.webapps[0].azurerm_linux_web_app_slot.api_staging'
 verification:
   - Terraform init and validate succeeded.
-  - Targeted API/App Service plan shows 0 add, 2 in-place changes, adding API routing settings only.
-  - DOCKET_BASE_URL is intentionally omitted from the plan while Docket is blocked.
+  - Targeted API/App Service plan shows 0 add, 2 in-place changes, adding API routing settings and the missing staging CORS origin.
+  - DOCKET_BASE_URL is intentionally omitted from the plan while Docket auth and ingestion semantics are blocked.
 blockers:
   - CogMesh-to-Docket auth scheme is not confirmed.
   - CogMesh-to-Docket production ingestion contract is not confirmed against the canonical Docket API.
   - CogMesh-to-Sluice auth scheme still needs production confirmation.
   - Full prod Terragrunt plan is not apply-safe yet because frontend App Service drift would remove existing frontend settings and move images back to Terraform-managed values.
-  - Current local CogMesh checkout remains dirty with migration documentation and Terraform changes only.
+  - Batch 2 changes are split into clean PR branches: migration package PR #512 and Terraform routing PR #513.
 risks:
   - Applying the full prod plan without drift reconciliation could remove frontend app settings managed outside Terraform.
   - The canonical Docket hostname currently fronts the existing pvc-shared-costops-api Container App; Docket repo naming and Terraform resource names still need follow-up cleanup.

@@ -28,7 +28,6 @@ decisions:
     - prod
   initial_domains:
     - staging.cognitivemesh.neuralliquid.ai
-    - prod.cognitivemesh.neuralliquid.ai
     - cognitivemesh.neuralliquid.ai
   eliminate_or_disable_expensive_nonessential_resources: true
   dns_source_of_truth_decision: "Use Mystira workspace Terraform only as a temporary bridge if it currently owns neuralliquid.ai DNS; move NeuralLiquid-owned DNS/deployment state to NeuralLiquid-owned infrastructure before long-term production."
@@ -303,6 +302,10 @@ references:
       source: README.md ecosystem table
       classification: PhoenixVC-hosted dependency
       action: retain PhoenixVC owner and clarify org-intelligence boundary until NeuralLiquid org-meta exists
+    - value: mcp-org
+      source: migration plan and cross-repository infrastructure inventory
+      classification: PhoenixVC-hosted dependency
+      action: retain PhoenixVC owner and clarify MCP aggregation boundary
     - value: mystira-workspace
       source: README.md ecosystem table
       classification: PhoenixVC-hosted dependency
@@ -323,7 +326,7 @@ references:
 blockers:
   - Batch 2 transfer remains partial until migration package PR #512 and companion Terraform routing PR #513 are reviewed and merged.
   - Deployment workflows still need the local workflow/Terraform changes to be committed and pushed before GitHub Actions will use the new Web App deployment path.
-  - Old cognitivemesh.io DNS names do not resolve; replace with staging.cognitivemesh.neuralliquid.ai, prod.cognitivemesh.neuralliquid.ai, and cognitivemesh.neuralliquid.ai.
+  - Old cognitivemesh.io DNS names do not resolve; replace with staging.cognitivemesh.neuralliquid.ai and cognitivemesh.neuralliquid.ai.
   - After repository transfer, add equivalent federated credential subjects for neuralliquid/cognitive-mesh to nl-cognitive-mesh-github-actions or a NeuralLiquid-owned replacement app registration.
   - GitHub Apps with selected repository access still need per-app repository selection confirmation before transfer; selected installations are visible, but expanding selected app repository lists through the API returned 403 and requires the broader GitHub OAuth `user` scope.
   - Docket must be live under canonical `docket` service identity before CogMesh sets `DOCKET_BASE_URL`; do not use the old `pvc-shared-costops-api` endpoint as the long-term dependency.
