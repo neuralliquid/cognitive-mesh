@@ -126,7 +126,7 @@
       "dependsOn": [
         "validate-input"
       ],
-      "authorityScope": "workflow.route",
+      "authorityScope": "external.write",
       "tools": [
         {
           "toolId": "AgencyLayer.AgencyRouter.TaskRouter",

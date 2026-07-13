@@ -168,12 +168,7 @@
           "pattern": "^[a-z0-9][a-z0-9._-]{2,127}$"
         },
         "kind": {
-          "enum": [
-            "interactive-coordination-latency",
-            "parallel-fanout-throughput",
-            "failure-injection-recovery",
-            "maker-long-horizon"
-          ]
+          "$ref": "benchmark-kind.schema.json"
         },
         "description": {
           "type": "string",

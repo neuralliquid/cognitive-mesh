@@ -5,6 +5,22 @@ schemas are the machine-readable boundary between generated repo guidance,
 runtime workflow execution, Baton evidence, model routing, cost routing, and
 benchmark promotion gates.
 
+## Status
+
+Implemented in this repository:
+
+- JSON Schemas for workflow contracts, harness contracts, and shared benchmark
+  gate identifiers.
+- Reference examples for the existing `DurableWorkflowEngine` orchestration
+  surface.
+- Documentation links from the API spec and orchestration evaluation surfaces.
+
+Planned follow-up work:
+
+- Actual harness runners for latency, fan-out throughput, and failure recovery.
+- Automated evidence attachment to Baton or release records.
+- Automated lifecycle promotion from `specified` through `promoted`.
+
 ## Files
 
 - `workflow-contract.schema.json` defines a governed multi-agent workflow:
@@ -13,6 +29,8 @@ benchmark promotion gates.
   and evaluation gates.
 - `harness-contract.schema.json` defines the benchmark harness that decides
   whether a workflow contract is harnessed, verified, or promotable.
+- `benchmark-kind.schema.json` is the canonical enum for benchmark gate
+  identifiers shared by workflow and harness contracts.
 - `examples/standard-orchestration-workflow.contract.json` is the reference
   workflow contract for the existing `DurableWorkflowEngine` surface.
 - `examples/standard-orchestration-harness.contract.json` binds the workflow to
@@ -31,7 +49,7 @@ actionable:
 | Failure injection and recovery | Benchmark 3 | correct final state and complete audit trail |
 | MAKER long-horizon execution | `MakerBenchmark` | at least 10 discs completed |
 
-Promotion from `specified` to `verified` requires all critical gates to pass and
-evidence artifacts to be attached to the task or release record. The schemas do
-not claim a workflow is currently verified; they define the contract required to
-produce that evidence.
+Promotion from `specified` to `verified` is not automated yet. It requires all
+critical gates to pass and evidence artifacts to be attached to the task or
+release record. The schemas do not claim a workflow is currently verified; they
+define the contract required to produce that evidence.

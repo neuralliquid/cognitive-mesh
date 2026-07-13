@@ -188,6 +188,42 @@
     "step": {
       "type": "object",
       "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "human-approval"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "approvalGateId"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "rollback"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "rollbackStepId"
+            ]
+          }
+        }
+      ],
       "required": [
         "stepId",
         "order",
@@ -657,12 +693,7 @@
           "type": "array",
           "minItems": 1,
           "items": {
-            "enum": [
-              "interactive-coordination-latency",
-              "parallel-fanout-throughput",
-              "failure-injection-recovery",
-              "maker-long-horizon"
-            ]
+            "$ref": "benchmark-kind.schema.json"
           }
         },
         "promotionRule": {

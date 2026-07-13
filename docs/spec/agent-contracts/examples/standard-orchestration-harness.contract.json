@@ -81,7 +81,7 @@
         "backpressureProbe": "2x saturation point"
       },
       "measurements": [
-        "wall_clock_ms",
+        "n100_wall_clock_ms",
         "tasks_per_second",
         "memory_peak_mb",
         "saturation_point",

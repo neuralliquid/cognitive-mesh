@@ -29,10 +29,12 @@ Weighted evaluation of agent orchestration approaches across **4 internal reposi
 ## Agent Contract Gates
 
 The benchmark harness now has a machine-readable contract surface in
-[`../spec/agent-contracts/`](../spec/agent-contracts/). Use those schemas when a
-workflow needs to move from `specified` to `harnessed`, `verified`, or
-`promoted`; use this evaluation package as the evidence source for latency,
-fan-out throughput, failure recovery, and MAKER long-horizon gates.
+[`../spec/agent-contracts/`](../spec/agent-contracts/). The implemented scope is
+schemas, shared gate identifiers, and reference examples. Lifecycle promotion
+from `specified` through `promoted` is not automated yet; it still requires the
+benchmark gates to run and evidence to be attached manually. Use this evaluation
+package as the evidence source for latency, fan-out throughput, failure
+recovery, and MAKER long-horizon gates.
 
 ## How to Read This Documentation
 
