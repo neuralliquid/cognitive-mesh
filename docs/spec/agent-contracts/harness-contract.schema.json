@@ -1,0 +1,265 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cognitive-mesh.local/schemas/agent-contracts/harness-contract.schema.json",
+  "title": "Cognitive Mesh Harness Contract",
+  "description": "Machine-readable contract for workflow evaluation harnesses and benchmark gates.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "contractId",
+    "workflowContractRef",
+    "owner",
+    "environment",
+    "benchmarks",
+    "reporting",
+    "promotion"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "agent-harness-contract/v1"
+    },
+    "contractId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{2,127}$"
+    },
+    "workflowContractRef": {
+      "type": "string",
+      "minLength": 1
+    },
+    "owner": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repo",
+        "team"
+      ],
+      "properties": {
+        "repo": {
+          "type": "string",
+          "minLength": 1
+        },
+        "team": {
+          "type": "string",
+          "minLength": 1
+        },
+        "batonTaskId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runtime",
+        "clock",
+        "warmupIterations"
+      ],
+      "properties": {
+        "runtime": {
+          "type": "string",
+          "minLength": 1
+        },
+        "clock": {
+          "enum": [
+            "monotonic",
+            "wall"
+          ]
+        },
+        "warmupIterations": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "resourceTelemetry": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "cpu",
+              "memory",
+              "queue-depth",
+              "tokens",
+              "cost"
+            ]
+          }
+        }
+      }
+    },
+    "benchmarks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/benchmark"
+      }
+    },
+    "reporting": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "requiredSections",
+        "artifactPath"
+      ],
+      "properties": {
+        "format": {
+          "enum": [
+            "markdown",
+            "json",
+            "junit"
+          ]
+        },
+        "artifactPath": {
+          "type": "string",
+          "minLength": 1
+        },
+        "requiredSections": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "promotion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "minimumLifecycleState",
+        "allCriticalGatesMustPass",
+        "evidenceRefs"
+      ],
+      "properties": {
+        "minimumLifecycleState": {
+          "enum": [
+            "harnessed",
+            "verified",
+            "promoted"
+          ]
+        },
+        "allCriticalGatesMustPass": {
+          "type": "boolean"
+        },
+        "evidenceRefs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "benchmark": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "benchmarkId",
+        "kind",
+        "description",
+        "workload",
+        "measurements",
+        "gates"
+      ],
+      "properties": {
+        "benchmarkId": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]{2,127}$"
+        },
+        "kind": {
+          "enum": [
+            "interactive-coordination-latency",
+            "parallel-fanout-throughput",
+            "failure-injection-recovery",
+            "maker-long-horizon"
+          ]
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "workload": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "measurements": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "gates": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/gate"
+          }
+        },
+        "failureTypes": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "transient",
+              "permanent",
+              "timeout",
+              "cascade"
+            ]
+          }
+        }
+      }
+    },
+    "gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "gateId",
+        "critical",
+        "metric",
+        "operator",
+        "threshold",
+        "rating"
+      ],
+      "properties": {
+        "gateId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "critical": {
+          "type": "boolean"
+        },
+        "metric": {
+          "type": "string",
+          "minLength": 1
+        },
+        "operator": {
+          "enum": [
+            "<",
+            "<=",
+            ">",
+            ">=",
+            "==",
+            "contains"
+          ]
+        },
+        "threshold": {
+          "type": [
+            "number",
+            "integer",
+            "string",
+            "boolean"
+          ]
+        },
+        "rating": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 5
+        },
+        "source": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,214 @@
+{
+  "schemaVersion": "agent-harness-contract/v1",
+  "contractId": "cognitive-mesh.standard-orchestration-harness.v1",
+  "workflowContractRef": "docs/spec/agent-contracts/examples/standard-orchestration-workflow.contract.json",
+  "owner": {
+    "repo": "phoenixvc/cognitive-mesh",
+    "team": "AgencyLayer",
+    "batonTaskId": "1ec54695-abd3-4bd7-b03e-53ed5f19133f"
+  },
+  "environment": {
+    "runtime": ".NET DurableWorkflowEngine benchmark runner",
+    "clock": "monotonic",
+    "warmupIterations": 100,
+    "resourceTelemetry": [
+      "cpu",
+      "memory",
+      "queue-depth",
+      "tokens",
+      "cost"
+    ]
+  },
+  "benchmarks": [
+    {
+      "benchmarkId": "interactive-coordination-latency",
+      "kind": "interactive-coordination-latency",
+      "description": "Measures p95 time from request arrival to first meaningful agent acknowledgement.",
+      "workload": {
+        "iterations": 1000,
+        "discardWarmupIterations": 100,
+        "input": {
+          "taskId": "latency-sample",
+          "agentCount": 3,
+          "payload": "classify"
+        }
+      },
+      "measurements": [
+        "p50_ms",
+        "p95_ms",
+        "p99_ms",
+        "parse_ms",
+        "routing_ms",
+        "dispatch_ms"
+      ],
+      "gates": [
+        {
+          "gateId": "latency-acceptable-p95",
+          "critical": true,
+          "metric": "p95_ms",
+          "operator": "<",
+          "threshold": 200,
+          "rating": 3,
+          "source": "docs/orchestration-evaluation/08-gaps-and-future/benchmark-harness-spec.md"
+        },
+        {
+          "gateId": "latency-good-p95",
+          "critical": false,
+          "metric": "p95_ms",
+          "operator": "<",
+          "threshold": 50,
+          "rating": 4,
+          "source": "docs/orchestration-evaluation/08-gaps-and-future/benchmark-harness-spec.md"
+        }
+      ]
+    },
+    {
+      "benchmarkId": "parallel-fanout-throughput",
+      "kind": "parallel-fanout-throughput",
+      "description": "Measures fan-out/fan-in throughput and validates backpressure under saturation.",
+      "workload": {
+        "batchSizes": [
+          1,
+          5,
+          10,
+          25,
+          50,
+          100,
+          250,
+          500
+        ],
+        "simulatedOperationMs": 100,
+        "backpressureProbe": "2x saturation point"
+      },
+      "measurements": [
+        "wall_clock_ms",
+        "tasks_per_second",
+        "memory_peak_mb",
+        "saturation_point",
+        "backpressure_observed"
+      ],
+      "gates": [
+        {
+          "gateId": "fanout-acceptable-n100-wallclock",
+          "critical": true,
+          "metric": "n100_wall_clock_ms",
+          "operator": "<",
+          "threshold": 30000,
+          "rating": 3,
+          "source": "docs/orchestration-evaluation/08-gaps-and-future/benchmark-harness-spec.md"
+        },
+        {
+          "gateId": "fanout-backpressure-observed",
+          "critical": true,
+          "metric": "backpressure_observed",
+          "operator": "==",
+          "threshold": true,
+          "rating": 3,
+          "source": "docs/orchestration-evaluation/08-gaps-and-future/benchmark-harness-spec.md"
+        }
+      ]
+    },
+    {
+      "benchmarkId": "failure-injection-recovery",
+      "kind": "failure-injection-recovery",
+      "description": "Validates retry behavior, timeout handling, permanent failure reporting, and audit completeness.",
+      "workload": {
+        "taskCount": 10,
+        "failureRate": 0.3,
+        "expectedSucceeded": 9,
+        "expectedPermanentFailures": 1
+      },
+      "measurements": [
+        "time_to_first_retry_ms",
+        "total_retries",
+        "permanent_failure_detection_ms",
+        "timeout_detection_ms",
+        "correct_final_state",
+        "audit_trail_complete"
+      ],
+      "gates": [
+        {
+          "gateId": "failure-final-state-correct",
+          "critical": true,
+          "metric": "correct_final_state",
+          "operator": "==",
+          "threshold": true,
+          "rating": 3,
+          "source": "docs/orchestration-evaluation/08-gaps-and-future/benchmark-harness-spec.md"
+        },
+        {
+          "gateId": "failure-audit-complete",
+          "critical": true,
+          "metric": "audit_trail_complete",
+          "operator": "==",
+          "threshold": true,
+          "rating": 3,
+          "source": "docs/orchestration-evaluation/08-gaps-and-future/benchmark-harness-spec.md"
+        }
+      ],
+      "failureTypes": [
+        "transient",
+        "permanent",
+        "timeout",
+        "cascade"
+      ]
+    },
+    {
+      "benchmarkId": "maker-long-horizon",
+      "kind": "maker-long-horizon",
+      "description": "Uses the existing Tower of Hanoi MAKER benchmark to gate long-horizon sequential workflow execution.",
+      "workload": {
+        "runner": "AgencyLayer.Orchestration.Benchmarks.MakerBenchmark.RunProgressiveBenchmarkAsync",
+        "minimumDiscsCompleted": 10,
+        "targetDiscsCompleted": 15
+      },
+      "measurements": [
+        "max_discs_completed",
+        "max_steps_completed",
+        "overall_maker_score",
+        "checkpoints_created"
+      ],
+      "gates": [
+        {
+          "gateId": "maker-minimum-10-discs",
+          "critical": true,
+          "metric": "max_discs_completed",
+          "operator": ">=",
+          "threshold": 10,
+          "rating": 3,
+          "source": "src/AgencyLayer/Orchestration/Benchmarks/MakerBenchmark.cs"
+        },
+        {
+          "gateId": "maker-target-15-discs",
+          "critical": false,
+          "metric": "max_discs_completed",
+          "operator": ">=",
+          "threshold": 15,
+          "rating": 5,
+          "source": "src/AgencyLayer/Orchestration/Benchmarks/MakerBenchmark.cs"
+        }
+      ]
+    }
+  ],
+  "reporting": {
+    "format": "markdown",
+    "artifactPath": "docs/orchestration-evaluation/08-gaps-and-future/benchmark-results/",
+    "requiredSections": [
+      "environment",
+      "interactive coordination latency",
+      "fan-out throughput",
+      "failure recovery",
+      "maker long-horizon",
+      "promotion decision"
+    ]
+  },
+  "promotion": {
+    "minimumLifecycleState": "verified",
+    "allCriticalGatesMustPass": true,
+    "evidenceRefs": [
+      "docs/orchestration-evaluation/08-gaps-and-future/benchmark-harness-spec.md",
+      "tests/AgencyLayer/Orchestration/Benchmarks/MakerBenchmarkTests.cs",
+      "tests/AgencyLayer/Orchestration/Benchmarks/ExecutionPipelineGapAnalysisTests.cs"
+    ]
+  }
+}

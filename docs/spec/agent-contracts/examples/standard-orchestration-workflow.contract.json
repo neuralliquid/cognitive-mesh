@@ -1,0 +1,288 @@
+{
+  "schemaVersion": "agent-workflow-contract/v1",
+  "contractId": "cognitive-mesh.standard-orchestration.v1",
+  "name": "Standard governed orchestration workflow",
+  "description": "Reference workflow contract for the Agent Operating Model v0 Cognitive Mesh runtime surface.",
+  "sourceAdr": "org-meta/architecture/agent-operating-model.md",
+  "lifecycleState": "specified",
+  "owner": {
+    "repo": "phoenixvc/cognitive-mesh",
+    "team": "AgencyLayer",
+    "batonTaskId": "1ec54695-abd3-4bd7-b03e-53ed5f19133f"
+  },
+  "trigger": {
+    "type": "api",
+    "entrypoint": "AgencyLayer.Orchestration.Execution.IWorkflowEngine.ExecuteWorkflowAsync",
+    "idempotencyKey": "$.taskId",
+    "preconditions": [
+      "caller has workflow.execute authority",
+      "input validates against contract input schema"
+    ]
+  },
+  "input": {
+    "contentType": "application/json",
+    "schema": {
+      "type": "object",
+      "required": [
+        "taskId",
+        "payload"
+      ],
+      "properties": {
+        "taskId": {
+          "type": "string"
+        },
+        "payload": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    "examples": [
+      {
+        "taskId": "demo-001",
+        "payload": {
+          "type": "classify"
+        }
+      }
+    ]
+  },
+  "output": {
+    "contentType": "application/json",
+    "schema": {
+      "type": "object",
+      "required": [
+        "workflowId",
+        "success",
+        "auditEventCount"
+      ],
+      "properties": {
+        "workflowId": {
+          "type": "string"
+        },
+        "success": {
+          "type": "boolean"
+        },
+        "auditEventCount": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "steps": [
+    {
+      "stepId": "validate-input",
+      "order": 0,
+      "name": "Validate request",
+      "kind": "validate",
+      "inputRef": "$.input",
+      "outputRef": "$.state.validatedInput",
+      "stateWrites": [
+        "validatedInput"
+      ],
+      "dependsOn": [],
+      "authorityScope": "workflow.validate",
+      "tools": [],
+      "modelRoute": {
+        "routingPolicyRef": "none",
+        "providerPolicy": "none",
+        "modelClass": "none"
+      },
+      "costRoute": {
+        "costCenter": "cognitive-mesh",
+        "usageMeter": "docket.workflow.validation",
+        "budgetCapUsd": 0,
+        "docketRouteRef": "pending-docket-canonical-url"
+      },
+      "timeoutMs": 1000,
+      "retry": {
+        "maxAttempts": 0,
+        "strategy": "none"
+      },
+      "backpressure": {
+        "maxConcurrency": 100,
+        "queuePolicy": "reject",
+        "queueLimit": 0
+      },
+      "idempotency": {
+        "keyRef": "$.taskId",
+        "effect": "read-only"
+      },
+      "auditEvents": [
+        "workflow.input.validated"
+      ]
+    },
+    {
+      "stepId": "route-agent",
+      "order": 1,
+      "name": "Route to agent",
+      "kind": "route",
+      "inputRef": "$.state.validatedInput",
+      "outputRef": "$.state.route",
+      "stateWrites": [
+        "route"
+      ],
+      "dependsOn": [
+        "validate-input"
+      ],
+      "authorityScope": "workflow.route",
+      "tools": [
+        {
+          "toolId": "AgencyLayer.AgencyRouter.TaskRouter",
+          "mode": "execute",
+          "required": true
+        }
+      ],
+      "modelRoute": {
+        "routingPolicyRef": "sluice.policy.standard-orchestration",
+        "providerPolicy": "gateway-managed",
+        "modelClass": "fast",
+        "maxTokens": 2048
+      },
+      "costRoute": {
+        "costCenter": "cognitive-mesh",
+        "usageMeter": "docket.workflow.routing",
+        "budgetCapUsd": 0.05,
+        "docketRouteRef": "pending-docket-canonical-url"
+      },
+      "timeoutMs": 5000,
+      "retry": {
+        "maxAttempts": 1,
+        "strategy": "fixed",
+        "baseDelayMs": 100
+      },
+      "backpressure": {
+        "maxConcurrency": 25,
+        "queuePolicy": "queue",
+        "queueLimit": 100
+      },
+      "idempotency": {
+        "keyRef": "$.taskId",
+        "effect": "dedupe"
+      },
+      "auditEvents": [
+        "workflow.agent.routed",
+        "workflow.model.route.selected",
+        "workflow.cost.usage.estimated"
+      ]
+    },
+    {
+      "stepId": "aggregate-result",
+      "order": 2,
+      "name": "Aggregate result",
+      "kind": "aggregate",
+      "inputRef": "$.state.route",
+      "outputRef": "$.output",
+      "stateWrites": [
+        "finalResult"
+      ],
+      "dependsOn": [
+        "route-agent"
+      ],
+      "authorityScope": "workflow.aggregate",
+      "tools": [],
+      "modelRoute": {
+        "routingPolicyRef": "none",
+        "providerPolicy": "none",
+        "modelClass": "none"
+      },
+      "costRoute": {
+        "costCenter": "cognitive-mesh",
+        "usageMeter": "docket.workflow.aggregate",
+        "budgetCapUsd": 0,
+        "docketRouteRef": "pending-docket-canonical-url"
+      },
+      "timeoutMs": 1000,
+      "retry": {
+        "maxAttempts": 0,
+        "strategy": "none"
+      },
+      "backpressure": {
+        "maxConcurrency": 100,
+        "queuePolicy": "reject",
+        "queueLimit": 0
+      },
+      "idempotency": {
+        "keyRef": "$.taskId",
+        "effect": "read-only"
+      },
+      "auditEvents": [
+        "workflow.result.aggregated"
+      ]
+    }
+  ],
+  "stateHandoff": {
+    "store": "checkpoint-manager",
+    "checkpointPolicy": "per-step",
+    "handoffKeys": [
+      "validatedInput",
+      "route",
+      "finalResult"
+    ],
+    "retentionDays": 30
+  },
+  "authority": {
+    "defaultScope": "workflow.execute",
+    "restrictedScopes": [
+      "filesystem.write",
+      "external.write",
+      "deployment.write"
+    ],
+    "escalationPolicy": "human-approval"
+  },
+  "runtime": {
+    "engine": "DurableWorkflowEngine",
+    "timeoutMs": 60000,
+    "defaultRetry": {
+      "maxAttempts": 3,
+      "strategy": "exponential",
+      "baseDelayMs": 250
+    },
+    "defaultBackpressure": {
+      "maxConcurrency": 25,
+      "queuePolicy": "queue",
+      "queueLimit": 100
+    }
+  },
+  "approval": {
+    "mode": "policy-gated",
+    "gates": [
+      {
+        "gateId": "restricted-tool-use",
+        "condition": "step authority scope is restricted",
+        "approver": "workflow.policy"
+      }
+    ]
+  },
+  "audit": {
+    "eventSchema": "docs/spec/agent-contracts/workflow-audit-event.v1",
+    "requiredEvents": [
+      "workflow.input.validated",
+      "workflow.agent.routed",
+      "workflow.result.aggregated"
+    ],
+    "tracePropagation": "baton-trace"
+  },
+  "rollback": {
+    "strategy": "checkpoint-restore",
+    "steps": [
+      "restore latest successful checkpoint",
+      "emit workflow.rollback.completed audit event"
+    ],
+    "verification": "GetWorkflowStatusAsync returns Suspended, Failed, or Completed with auditable final state"
+  },
+  "evaluation": {
+    "harnessContractRef": "docs/spec/agent-contracts/examples/standard-orchestration-harness.contract.json",
+    "requiredGates": [
+      "interactive-coordination-latency",
+      "parallel-fanout-throughput",
+      "failure-injection-recovery",
+      "maker-long-horizon"
+    ],
+    "promotionRule": "Lifecycle may advance to verified only when all critical harness gates pass and evidence artifacts are attached."
+  },
+  "metadata": {
+    "parentEpic": "e1c82235-02d8-4b99-ba86-da2195271845"
+  }
+}
