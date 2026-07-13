@@ -127,6 +127,8 @@ jobs:
           COGMESH_DOCKET_BASE_URL: ${{ vars.COGMESH_DOCKET_BASE_URL }}
           COGMESH_DOCKET_AUDIENCE: ${{ vars.COGMESH_DOCKET_AUDIENCE }}
           COGMESH_DOCKET_SCOPE: ${{ vars.COGMESH_DOCKET_SCOPE }}
+          COGMESH_DOCKET_API_KEY: ${{ secrets.COGMESH_DOCKET_API_KEY }}
+          COGMESH_DOCKET_API_KEY_SECRET_URI: ${{ vars.COGMESH_DOCKET_API_KEY_SECRET_URI }}
           COGMESH_SLUICE_BASE_URL: ${{ vars.COGMESH_SLUICE_BASE_URL }}
           COGMESH_SLUICE_MODEL: ${{ vars.COGMESH_SLUICE_MODEL || 'default' }}
           COGMESH_SLUICE_MAX_TOKENS: ${{ vars.COGMESH_SLUICE_MAX_TOKENS || '16384' }}
@@ -158,6 +160,11 @@ jobs:
           fi
           if [ -n "${COGMESH_DOCKET_SCOPE}" ]; then
             app_settings+=(DOCKET_SCOPE="${COGMESH_DOCKET_SCOPE}")
+          fi
+          if [ -n "${COGMESH_DOCKET_API_KEY_SECRET_URI}" ]; then
+            app_settings+=(DOCKET_API_KEY="@Microsoft.KeyVault(SecretUri=${COGMESH_DOCKET_API_KEY_SECRET_URI})")
+          elif [ -n "${COGMESH_DOCKET_API_KEY}" ]; then
+            app_settings+=(DOCKET_API_KEY="${COGMESH_DOCKET_API_KEY}")
           fi
           if [ -n "${COGMESH_SLUICE_BASE_URL}" ]; then
             app_settings+=(SLUICE_BASE_URL="${COGMESH_SLUICE_BASE_URL}")
@@ -215,6 +222,8 @@ jobs:
           COGMESH_DOCKET_BASE_URL: ${{ vars.COGMESH_DOCKET_BASE_URL }}
           COGMESH_DOCKET_AUDIENCE: ${{ vars.COGMESH_DOCKET_AUDIENCE }}
           COGMESH_DOCKET_SCOPE: ${{ vars.COGMESH_DOCKET_SCOPE }}
+          COGMESH_DOCKET_API_KEY: ${{ secrets.COGMESH_DOCKET_API_KEY }}
+          COGMESH_DOCKET_API_KEY_SECRET_URI: ${{ vars.COGMESH_DOCKET_API_KEY_SECRET_URI }}
           COGMESH_SLUICE_BASE_URL: ${{ vars.COGMESH_SLUICE_BASE_URL }}
           COGMESH_SLUICE_MODEL: ${{ vars.COGMESH_SLUICE_MODEL || 'default' }}
           COGMESH_SLUICE_MAX_TOKENS: ${{ vars.COGMESH_SLUICE_MAX_TOKENS || '16384' }}
@@ -245,6 +254,11 @@ jobs:
           fi
           if [ -n "${COGMESH_DOCKET_SCOPE}" ]; then
             app_settings+=(DOCKET_SCOPE="${COGMESH_DOCKET_SCOPE}")
+          fi
+          if [ -n "${COGMESH_DOCKET_API_KEY_SECRET_URI}" ]; then
+            app_settings+=(DOCKET_API_KEY="@Microsoft.KeyVault(SecretUri=${COGMESH_DOCKET_API_KEY_SECRET_URI})")
+          elif [ -n "${COGMESH_DOCKET_API_KEY}" ]; then
+            app_settings+=(DOCKET_API_KEY="${COGMESH_DOCKET_API_KEY}")
           fi
           if [ -n "${COGMESH_SLUICE_BASE_URL}" ]; then
             app_settings+=(SLUICE_BASE_URL="${COGMESH_SLUICE_BASE_URL}")
