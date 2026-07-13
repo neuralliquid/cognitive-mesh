@@ -67,6 +67,12 @@ These checks verify status surfaces, not full live Sluice model execution or can
 - Confirmed `gh auth status` after refresh shows token scopes `admin:org`, `gist`, `read:packages`, `repo`, and `user`.
 - Retried selected GitHub App repository expansion for Devin (`68460896`), Renovate (`101140936`), phoenixvc-actions-runner (`111911804`), and Stilla (`116485390`) via `/user/installations/{installation_id}/repositories`.
 - GitHub still returned HTTP 403 for all four installation IDs: the endpoint requires a GitHub App-authorized token, a PAT, or basic auth. The OAuth `user` scope did not clear this blocker in the current CLI environment.
+- Retried the same installation repository queries with a classic PAT accepted by GitHub's installation repositories endpoint.
+- Confirmed Renovate (`101140936`) includes `phoenixvc/cognitive-mesh`.
+- Confirmed Stilla (`116485390`) includes `phoenixvc/cognitive-mesh`.
+- Confirmed Devin (`68460896`) does not include `phoenixvc/cognitive-mesh`; this is acceptable because Devin is inactive for this transfer.
+- Confirmed phoenixvc-actions-runner (`111911804`) has zero repositories; this is acceptable because the runner app is not currently deployed.
+- Selected GitHub App repository coverage is therefore no longer a transfer blocker for Batch 2: the active/required apps are covered, and the uncovered apps are explicitly not required.
 - Re-verified canonical Docket repository as `phoenixvc/docket`.
 - Re-verified `https://docket.phoenixvc.tech/health` returns HTTP 200 with `{"status":"ok","backend":"table"}`.
 - Re-verified `https://docket.phoenixvc.tech/config/status` returns HTTP 200 with `backend=table`, `auth_disabled=false`, Azure AD client id `f6c75495-4566-4263-9045-d2f4818b892d`, and tenant id `7edf4423-ccb3-4275-bc80-64dae3ef0148`.
@@ -94,13 +100,11 @@ These checks verify status surfaces, not full live Sluice model execution or can
 - CogMesh-to-Docket service auth is identifiable but not wired: Docket supports Azure AD bearer tokens and optional `X-API-Key`, but CogMesh does not currently send either to Docket.
 - CogMesh-to-Docket production ingestion contract is blocked: Docket does not currently expose a matching model-usage ingestion endpoint for CogMesh's local `DocketUsageEvent` shape.
 - CogMesh-to-Sluice auth scheme still needs production confirmation.
-- Selected-repository GitHub App coverage still needs confirmation before transfer; installation IDs are known, but repository selection expansion is blocked by token type. Manual org UI review or a PAT/GitHub App-authorized token is required.
 - Repository transfer must not proceed until blockers are resolved, even though the clean source build/test baseline is now recorded.
 
 ## Next Verification Action
 
-1. Confirm selected app repository coverage manually in GitHub org settings, or rerun the installation repository queries with a PAT/GitHub App-authorized token.
-2. Define and implement the Docket model-usage ingestion endpoint or adapter contract, including service auth.
-3. Configure CogMesh `DOCKET_BASE_URL` only after Docket has a compatible authenticated ingestion route.
-4. Confirm CogMesh-to-Sluice production auth.
-5. Run full Terraform validation and prod plan after frontend App Service drift is reconciled.
+1. Define and implement the Docket model-usage ingestion endpoint or adapter contract, including service auth.
+2. Configure CogMesh `DOCKET_BASE_URL` only after Docket has a compatible authenticated ingestion route.
+3. Confirm CogMesh-to-Sluice production auth.
+4. Run full Terraform validation and prod plan after frontend App Service drift is reconciled.
