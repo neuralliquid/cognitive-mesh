@@ -60,7 +60,7 @@ These checks verify status surfaces, not full live Sluice model execution or can
 - Verified `https://docket.phoenixvc.tech/config/status` returns `backend=table` and `auth_disabled=false`.
 - Ran `terraform init -backend=false` in `infra`: succeeded.
 - Ran `terraform validate` in `infra`: succeeded.
-- Ran targeted `terragrunt plan -no-color` for the API App Service and API staging slot: plan shows two in-place API resource updates to add `ALLOW_DIRECT_MODEL_PROVIDER=false`, `SLUICE_BASE_URL`, `SLUICE_MODEL`, `SLUICE_MAX_TOKENS` and the missing CORS origin. `DOCKET_BASE_URL` is intentionally not present while Docket auth and ingestion contract remain unconfirmed.
+- Ran targeted `terragrunt plan -no-color` for the API App Service and API staging slot. With Sluice environment hooks unset, the plan shows two in-place API resource updates to add `ALLOW_DIRECT_MODEL_PROVIDER=false` and the missing CORS origin only. `SLUICE_BASE_URL`, `SLUICE_API_KEY`, and `DOCKET_BASE_URL` are intentionally not present until auth and ingestion contracts are confirmed.
 
 ## Changes To Verify Before Applying
 

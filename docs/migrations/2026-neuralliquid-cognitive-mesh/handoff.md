@@ -147,7 +147,7 @@ Delivered:
 Current production behavior:
 
 - Sluice reports `configuration_missing` until `SLUICE_BASE_URL` is set.
-- Azure metadata confirms the Sluice LiteLLM gateway custom domain is `https://litellm.sluice.phoenixvc.tech`; CogMesh prod Terraform now has a non-secret hook for `SLUICE_BASE_URL`.
+- Azure metadata confirms the Sluice LiteLLM gateway custom domain is `https://litellm.sluice.phoenixvc.tech`; CogMesh prod Terraform now has non-secret hooks for `SLUICE_BASE_URL` and a Key Vault reference for `SLUICE_API_KEY`, but leaves them unset until auth is confirmed.
 - Docket reports `in-memory` until `DOCKET_BASE_URL` is set.
 - Docket canonical API URL is now live at `https://docket.phoenixvc.tech`.
 - Do not set `DOCKET_BASE_URL` until CogMesh-to-Docket auth and the production ingestion contract are confirmed. The current canonical host fronts the existing `pvc-shared-costops-api` Container App while Docket naming and IaC catch up.
@@ -176,11 +176,12 @@ work_completed:
   - Added Terraform hooks for Cognitive Mesh API routing settings:
       - ALLOW_DIRECT_MODEL_PROVIDER=false
       - SLUICE_BASE_URL
+      - Key Vault reference hook for SLUICE_API_KEY
       - SLUICE_MODEL
       - SLUICE_MAX_TOKENS
       - optional DOCKET_BASE_URL
       - staging.cognitivemesh.neuralliquid.ai CORS origin
-  - Set prod Sluice base URL to the verified LiteLLM gateway:
+  - Verified the intended prod Sluice base URL but left it gated on a managed API key reference:
       - https://litellm.sluice.phoenixvc.tech
   - Left DOCKET_BASE_URL empty because the canonical Docket endpoint is live but not approved for CogMesh until auth and usage-ingestion semantics are confirmed.
   - Updated manifest and this handoff with the Docket blocker.
@@ -217,7 +218,7 @@ tests_run:
   - terragrunt plan -no-color -target='module.webapps[0].azurerm_linux_web_app.api' -target='module.webapps[0].azurerm_linux_web_app_slot.api_staging'
 verification:
   - Terraform init and validate succeeded.
-  - Targeted API/App Service plan shows 0 add, 2 in-place changes, adding API routing settings and the missing staging CORS origin.
+  - Targeted API/App Service plan shows 0 add, 2 in-place changes, adding direct-provider blocking and the missing staging CORS origin when Sluice env hooks are unset.
   - DOCKET_BASE_URL is intentionally omitted from the plan while Docket auth and ingestion semantics are blocked.
 blockers:
   - CogMesh-to-Docket auth scheme is not confirmed.
@@ -236,7 +237,7 @@ rollback_state:
 next_action:
   - Confirm CogMesh-to-Docket auth and production usage-ingestion contract, then set DOCKET_BASE_URL to https://docket.phoenixvc.tech only if compatible.
   - Reconcile frontend App Service Terraform drift before any full prod apply.
-  - Apply the API-only Sluice routing settings only after Sluice auth is confirmed.
+  - Apply Sluice routing settings only after Sluice auth is confirmed and `COGMESH_SLUICE_BASE_URL` plus `COGMESH_SLUICE_API_KEY_SECRET_URI` are supplied.
   - Continue CogMesh org migration only after Sluice/Docket routing blockers are resolved.
 funding_impact:
   - Positive once resolved: Docket plus Sluice will provide credible model usage/cost evidence for AI-credit applications.
