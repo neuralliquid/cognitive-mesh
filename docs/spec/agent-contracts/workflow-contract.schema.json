@@ -316,10 +316,12 @@
           "$ref": "#/$defs/idempotency"
         },
         "approvalGateId": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "rollbackStepId": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "auditEvents": {
           "type": "array",
