@@ -25,9 +25,17 @@ locals {
     local.api_sluice_secret_app_settings
   )
 
-  api_docket_app_settings = var.api_docket_base_url == "" ? {} : {
+  api_docket_scope_app_settings = (
+    var.api_docket_scope != "" ? {
+      DOCKET_SCOPE = var.api_docket_scope
+      } : var.api_docket_audience != "" ? {
+      DOCKET_AUDIENCE = var.api_docket_audience
+    } : {}
+  )
+
+  api_docket_app_settings = var.api_docket_base_url == "" ? {} : merge({
     DOCKET_BASE_URL = var.api_docket_base_url
-  }
+  }, local.api_docket_scope_app_settings)
 
   api_optional_routing_app_settings = merge(local.api_sluice_app_settings, local.api_docket_app_settings)
 }
