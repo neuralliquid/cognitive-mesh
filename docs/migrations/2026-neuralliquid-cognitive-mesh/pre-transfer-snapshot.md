@@ -16,8 +16,11 @@ This started as a metadata snapshot and now also records the local CI/CD and Ter
 - Archived: false
 - Disabled: false
 - Default branch: `dev`
-- HEAD SHA in local clone: `da03b47e3a62989495b0d7715273ed30dd78dc39`
-- Latest local commit: `da03b47e3a62989495b0d7715273ed30dd78dc39 2026-07-12T11:30:02+02:00 fix(deps): replace dependency framer-motion with motion 12.42.2 (#493)`
+- Latest fetched `origin/dev` SHA checked on 2026-07-13: `5b76bf34389b0a82dcc546c2eb09d0494cb09e1e`
+- Current local branch checked on 2026-07-13: `agent/adaptive-balance-control-widget`
+- HEAD SHA in local clone: `5ba6d9d0e96611baed977cf9c439cb58a5a4d708`
+- Latest local commit: `5ba6d9d0e96611baed977cf9c439cb58a5a4d708 feat: wire live governance widgets`
+- Snapshot caution: the original local discovery checkout was not a clean `dev` baseline. The migration package was later isolated into PR #512 from `origin/dev`; Terraform routing settings were isolated into companion PR #513.
 - Repository description: `Enterprise agent/LLM platform - RBAC, audit, Azure OpenAI, RAG. Relaunching as neuralliquid.ai`
 - Homepage: empty
 - Primary language: C#
@@ -199,7 +202,12 @@ These names must be validated as repository, organization, or environment secret
   - `devin-ai-integration` - selected repositories
   - `phoenixvc-actions-runner` - selected repositories
 - Selected-repository app installations still need repository selection confirmation before transfer, especially `renovate`, `stilla`, `devin-ai-integration`, and `phoenixvc-actions-runner`.
-- Attempting to expand selected app repository lists through `/user/installations/{installation_id}/repositories` returned 403 and requires `read:user` scope.
+- Selected app installation IDs were narrowed on 2026-07-13:
+  - `devin-ai-integration`: `68460896`
+  - `renovate`: `101140936`
+  - `phoenixvc-actions-runner`: `111911804`
+  - `stilla`: `116485390`
+- Attempting to expand selected app repository lists through `/user/installations/{installation_id}/repositories` still returned 403 on 2026-07-13 and requires the broader GitHub OAuth `user` scope, not only `read:user`.
 
 ## Pages
 
@@ -295,7 +303,6 @@ Updated deployment decision:
 - `staging` is a production slot, not an independent long-lived staging environment.
 - Target domain pattern for now:
   - `staging.cognitivemesh.neuralliquid.ai`
-  - `prod.cognitivemesh.neuralliquid.ai`
   - `cognitivemesh.neuralliquid.ai`
 - Eliminate or disable expensive nonessential resources for the initial deployment.
 - DNS is currently managed in Mystira workspace Terraform; this can be used as a temporary bridge, but NeuralLiquid-owned DNS/deployment state should move to NeuralLiquid-owned infrastructure before long-term production.
@@ -423,11 +430,11 @@ This rollback is incomplete until the blockers below are resolved.
 
 ## Blockers Before Transfer
 
-- Deploy workflows require unset variables: `AZURE_WEBAPP_RESOURCE_GROUP`, `COGNITIVE_MESH_API_APP_NAME`, and `COGNITIVE_MESH_FRONTEND_APP_NAME`.
-- Deployment workflows still need the local workflow/Terraform changes to be committed and pushed before GitHub Actions will use the new Web App deployment path.
+- Batch 2 artifacts and routing Terraform changes are isolated into clean PR branches and must be reviewed/merged before transfer: migration package PR #512 and Terraform routing PR #513.
+- Deployment workflows still need any approved local workflow/Terraform changes to be committed and pushed before GitHub Actions will use the new Web App deployment path.
 - Old `cognitivemesh.io`, `staging.cognitivemesh.io`, and `api.cognitivemesh.io` do not resolve; replace with `*.cognitivemesh.neuralliquid.ai`.
 - After repository transfer, add equivalent federated credential subjects for `neuralliquid/cognitive-mesh` to `nl-cognitive-mesh-github-actions` or a NeuralLiquid-owned replacement app registration.
-- Selected-repository GitHub App coverage still needs confirmation for `cognitive-mesh`, especially Renovate, Stilla, Devin, and phoenixvc-actions-runner; API expansion requires `read:user` scope or manual org UI review.
+- Selected-repository GitHub App coverage still needs confirmation for `cognitive-mesh`, especially Renovate, Stilla, Devin, and phoenixvc-actions-runner; API expansion returned 403 and requires OAuth `user` scope or manual org UI review.
 
 ## Resolved Or Narrowed Blockers
 
@@ -444,15 +451,21 @@ This rollback is incomplete until the blockers below are resolved.
 - Prod Terragrunt apply completed; final Terragrunt plan reports no changes.
 - GitHub Actions variables were populated on `phoenixvc/cognitive-mesh`.
 - GitHub Actions OIDC secrets were populated on `phoenixvc/cognitive-mesh`: `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, and `AZURE_SUBSCRIPTION_ID`.
+- Deploy workflow variable setup is resolved for the currently recorded PhoenixVC deployment path, but must be recreated or validated again after transfer to `neuralliquid/cognitive-mesh`.
 - Terraform validation succeeds with AzureRM `4.80.0`.
 - Sluice-owned AOAI resource `pvc-prod-sluice-aoai` was found, supporting the architecture boundary that Cognitive Mesh should route model calls through `sluice`.
 - GitHub App installation inventory is now visible at org level; 40 installations were found.
+- Selected app installation IDs are now known, but repository membership remains blocked by OAuth scope.
 - GitHub package inventory is now visible; no Cognitive Mesh packages were found under `phoenixvc`.
 - Organization Actions secrets are now visible; `AZURE_CREDENTIALS` exists at org scope, but deployment workflow ACR/AKS/Slack secret names do not.
 
 ## Validation Performed
 
 - Cloned `https://github.com/phoenixvc/cognitive-mesh.git` to `C:/tmp/cognitive-mesh`.
+- Fetched `origin` on 2026-07-13 and confirmed `origin/dev` at `5b76bf34389b0a82dcc546c2eb09d0494cb09e1e`.
+- Confirmed local branch `agent/adaptive-balance-control-widget` at `5ba6d9d0e96611baed977cf9c439cb58a5a4d708` with uncommitted migration/Terraform work.
+- Queried selected GitHub App installation metadata and captured installation IDs for Renovate, Stilla, Devin and phoenixvc-actions-runner.
+- Retried `/user/installations/{installation_id}/repositories`; GitHub returned 403 and requested OAuth `user` scope.
 - Read `AGENTS.md` and `CLAUDE.md`.
 - Queried GitHub repository metadata, branches, releases, rulesets, environments, secrets, variables, hooks, deploy keys, deployments, Pages, and recent workflow runs.
 - Checked direct `staging` and `production` GitHub environments; both returned 404.
