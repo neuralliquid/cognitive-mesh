@@ -8,6 +8,28 @@ locals {
     for index, origin in var.api_allowed_origins :
     "Cors__AllowedOrigins__${index}" => origin
   }
+
+  api_required_routing_app_settings = {
+    ALLOW_DIRECT_MODEL_PROVIDER = "false"
+  }
+
+  api_sluice_secret_app_settings = var.api_sluice_api_key_secret_uri == "" ? {} : {
+    SLUICE_API_KEY = "@Microsoft.KeyVault(SecretUri=${var.api_sluice_api_key_secret_uri})"
+  }
+
+  api_sluice_app_settings = var.api_sluice_base_url == "" ? {} : merge({
+    SLUICE_BASE_URL   = var.api_sluice_base_url
+    SLUICE_MODEL      = var.api_sluice_model
+    SLUICE_MAX_TOKENS = tostring(var.api_sluice_max_tokens)
+    },
+    local.api_sluice_secret_app_settings
+  )
+
+  api_docket_app_settings = var.api_docket_base_url == "" ? {} : {
+    DOCKET_BASE_URL = var.api_docket_base_url
+  }
+
+  api_optional_routing_app_settings = merge(local.api_sluice_app_settings, local.api_docket_app_settings)
 }
 
 resource "azurerm_service_plan" "this" {
@@ -49,7 +71,7 @@ resource "azurerm_linux_web_app" "api" {
     ASPNETCORE_URLS                     = "http://+:${var.api_port}"
     WEBSITES_ENABLE_APP_SERVICE_STORAGE = "false"
     WEBSITES_PORT                       = tostring(var.api_port)
-  }, local.api_cors_app_settings)
+  }, local.api_cors_app_settings, local.api_required_routing_app_settings, local.api_optional_routing_app_settings)
 
   tags = merge(var.common_tags, {
     Module = "webapp-container"
@@ -82,7 +104,7 @@ resource "azurerm_linux_web_app_slot" "api_staging" {
     ASPNETCORE_URLS                     = "http://+:${var.api_port}"
     WEBSITES_ENABLE_APP_SERVICE_STORAGE = "false"
     WEBSITES_PORT                       = tostring(var.api_port)
-  }, local.api_cors_app_settings)
+  }, local.api_cors_app_settings, local.api_required_routing_app_settings, local.api_optional_routing_app_settings)
 
   tags = merge(var.common_tags, {
     Module = "webapp-container"
