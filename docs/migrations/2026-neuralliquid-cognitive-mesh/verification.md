@@ -78,8 +78,8 @@ These checks verify status surfaces, not full live Sluice model execution or can
 - Re-verified `https://docket.phoenixvc.tech/config/status` returns HTTP 200 with `backend=table`, `auth_disabled=false`, Azure AD client id `f6c75495-4566-4263-9045-d2f4818b892d`, and tenant id `7edf4423-ccb3-4275-bc80-64dae3ef0148`.
 - Re-verified `https://docket.phoenixvc.tech/openapi.json` returns HTTP 200.
 - Inspected Docket auth implementation. Docket protected endpoints use `Authorization: Bearer <token>` with Azure AD JWT validation when `AZURE_AD_TENANT_ID` and `AZURE_AD_CLIENT_ID` are set, with `X-API-Key` as a service-to-service fallback when `API_KEY` is configured.
-- Inspected Docket OpenAPI and source routes. The canonical Docket API exposes cost-centre, resource-group, budget, dashboard, action-log, and resource-action routes. It does not expose a CogMesh-compatible `POST /usage`, `POST /api/v1/docket/usage`, or equivalent model-usage ingestion route.
-- Inspected Cognitive Mesh Docket integration. `src/ApiHost/Program.cs` exposes local `GET /api/v1/docket/usage/recent` and `POST /api/v1/docket/usage`, backed by `InMemoryDocketUsageRecorder`; `DOCKET_BASE_URL` only changes status reporting to `external-ready` and does not currently wire outbound ingestion to Docket.
+- Implemented Docket PR `phoenixvc/docket#99`, adding protected model-usage ingestion routes at `POST /usage/model-events` and `POST /api/v1/usage/model-events`. JWT callers require the `Docket.UsageIngest` role; the existing `X-API-Key` service fallback remains available for initial smoke testing.
+- Implemented Cognitive Mesh Docket outbound usage client support. `src/ApiHost/Program.cs` now keeps recent usage locally and forwards recorded `DocketUsageEvent` payloads to Docket when `DOCKET_BASE_URL` is configured. Auth is selected in this order: `DOCKET_API_KEY`, `DOCKET_BEARER_TOKEN`, then Entra token acquisition from `DOCKET_SCOPE` or `DOCKET_AUDIENCE`.
 - Updated clean baseline worktree to `origin/dev` at `92aa06bffcfc981eea5cf981e0245ed8180c9bf5`.
 - Ran `dotnet build CognitiveMesh.sln`: succeeded with 0 warnings and 0 errors.
 - Ran `dotnet test CognitiveMesh.sln --no-build`: succeeded, 581 tests passed.
@@ -93,18 +93,18 @@ These checks verify status surfaces, not full live Sluice model execution or can
 - Full Terragrunt plan after frontend App Service drift is reconciled.
 - Production API app settings after apply.
 - Sluice authenticated route from CogMesh after auth is configured.
-- Docket authenticated usage-ingestion route from CogMesh after Docket exposes or documents a compatible ingestion contract.
+- Docket authenticated usage-ingestion route from CogMesh after Docket PR #99 and the CogMesh outbound client PR are merged and deployed with production settings.
 
 ## Blockers
 
-- CogMesh-to-Docket service auth is identifiable but not wired: Docket supports Azure AD bearer tokens and optional `X-API-Key`, but CogMesh does not currently send either to Docket.
-- CogMesh-to-Docket production ingestion contract is blocked: Docket does not currently expose a matching model-usage ingestion endpoint for CogMesh's local `DocketUsageEvent` shape.
+- CogMesh-to-Docket code-level contract is implemented but not production-smoked. Merge and deploy Docket PR #99, merge and deploy the CogMesh outbound client PR, then set `DOCKET_BASE_URL` plus either `DOCKET_AUDIENCE`/`DOCKET_SCOPE` for Entra app-role auth or `DOCKET_API_KEY` for the short bridge.
 - CogMesh-to-Sluice auth scheme still needs production confirmation.
 - Repository transfer must not proceed until blockers are resolved, even though the clean source build/test baseline is now recorded.
 
 ## Next Verification Action
 
-1. Define and implement the Docket model-usage ingestion endpoint or adapter contract, including service auth.
-2. Configure CogMesh `DOCKET_BASE_URL` only after Docket has a compatible authenticated ingestion route.
-3. Confirm CogMesh-to-Sluice production auth.
-4. Run full Terraform validation and prod plan after frontend App Service drift is reconciled.
+1. Merge and deploy Docket PR #99.
+2. Merge and deploy the CogMesh outbound Docket usage client PR.
+3. Configure CogMesh `DOCKET_BASE_URL` and service auth after Docket is deployed.
+4. Confirm CogMesh-to-Sluice production auth.
+5. Run full Terraform validation and prod plan after frontend App Service drift is reconciled.

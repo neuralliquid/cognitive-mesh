@@ -1,9 +1,14 @@
 using AgencyLayer.CognitiveSandwich.Infrastructure;
+using Azure.Core;
+using Azure.Identity;
 using CognitiveMesh.AgencyLayer.RealTime.Infrastructure;
 using CognitiveMesh.BusinessApplications.AdaptiveBalance.Infrastructure;
 using CognitiveMesh.BusinessApplications.ImpactMetrics.Infrastructure;
 using CognitiveMesh.BusinessApplications.NISTCompliance.Infrastructure;
 using System.Collections.Concurrent;
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
+using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -29,7 +34,7 @@ builder.Services.AddCognitiveSandwichServices();
 builder.Services.AddImpactMetricsServices();
 builder.Services.AddCognitiveMeshRealTime();
 builder.Services.AddSingleton<ModelRoutingTelemetryStore>();
-builder.Services.AddSingleton<IDocketUsageRecorder, InMemoryDocketUsageRecorder>();
+builder.Services.AddHttpClient<IDocketUsageRecorder, DocketUsageRecorder>();
 
 // CORS — allow the Next.js frontend during development
 builder.Services.AddCors(options =>
@@ -261,17 +266,30 @@ internal interface IDocketUsageRecorder
     IReadOnlyList<DocketUsageEvent> GetRecent(int maxResults);
 }
 
-internal sealed class InMemoryDocketUsageRecorder : IDocketUsageRecorder
+internal sealed class DocketUsageRecorder : IDocketUsageRecorder
 {
     private readonly ConcurrentQueue<DocketUsageEvent> _events = new();
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private readonly HttpClient _httpClient;
+    private readonly IConfiguration _configuration;
+    private readonly ILogger<DocketUsageRecorder> _logger;
+    private readonly TokenCredential _credential;
 
-    public InMemoryDocketUsageRecorder(IConfiguration configuration)
+    public DocketUsageRecorder(
+        HttpClient httpClient,
+        IConfiguration configuration,
+        ILogger<DocketUsageRecorder> logger)
     {
+        _httpClient = httpClient;
+        _configuration = configuration;
+        _logger = logger;
+        _credential = CreateCredential(configuration);
+
         var model = configuration["Sluice:Model"]
             ?? configuration["SLUICE_MODEL"]
             ?? "default";
 
-        Record(new DocketUsageEvent(
+        Enqueue(Normalize(new DocketUsageEvent(
             Guid.NewGuid().ToString(),
             "demo-tenant",
             null,
@@ -285,33 +303,23 @@ internal sealed class InMemoryDocketUsageRecorder : IDocketUsageRecorder
             0,
             "allowed",
             "recorded",
-            DateTimeOffset.UtcNow));
+            DateTimeOffset.UtcNow)));
     }
 
     public DocketUsageEvent Record(DocketUsageEvent usageEvent)
     {
-        var normalized = usageEvent with
-        {
-            CorrelationId = string.IsNullOrWhiteSpace(usageEvent.CorrelationId)
-                ? Guid.NewGuid().ToString()
-                : usageEvent.CorrelationId,
-            Source = string.IsNullOrWhiteSpace(usageEvent.Source) ? "CognitiveMesh" : usageEvent.Source,
-            Provider = string.IsNullOrWhiteSpace(usageEvent.Provider) ? "sluice" : usageEvent.Provider,
-            Model = string.IsNullOrWhiteSpace(usageEvent.Model) ? "default" : usageEvent.Model,
-            Status = string.IsNullOrWhiteSpace(usageEvent.Status) ? "recorded" : usageEvent.Status,
-            PolicyOutcome = string.IsNullOrWhiteSpace(usageEvent.PolicyOutcome) ? "unknown" : usageEvent.PolicyOutcome,
-            OccurredAt = usageEvent.OccurredAt == default ? DateTimeOffset.UtcNow : usageEvent.OccurredAt,
-            TotalTokens = usageEvent.TotalTokens > 0
-                ? usageEvent.TotalTokens
-                : Math.Max(0, usageEvent.PromptTokens + usageEvent.CompletionTokens)
-        };
+        var normalized = Normalize(usageEvent);
+        Enqueue(normalized);
+        _ = ForwardUsageAsync(normalized, CancellationToken.None);
+        return normalized;
+    }
 
+    private void Enqueue(DocketUsageEvent normalized)
+    {
         _events.Enqueue(normalized);
         while (_events.Count > 250 && _events.TryDequeue(out _))
         {
         }
-
-        return normalized;
     }
 
     public IReadOnlyList<DocketUsageEvent> GetRecent(int maxResults)
@@ -320,6 +328,149 @@ internal sealed class InMemoryDocketUsageRecorder : IDocketUsageRecorder
             .Reverse()
             .Take(Math.Clamp(maxResults, 1, 100))
             .ToArray();
+    }
+
+    private static DocketUsageEvent Normalize(DocketUsageEvent usageEvent)
+    {
+        var promptTokens = Math.Max(0, usageEvent.PromptTokens);
+        var completionTokens = Math.Max(0, usageEvent.CompletionTokens);
+
+        return usageEvent with
+        {
+            CorrelationId = string.IsNullOrWhiteSpace(usageEvent.CorrelationId)
+                ? Guid.NewGuid().ToString()
+                : usageEvent.CorrelationId,
+            Source = string.IsNullOrWhiteSpace(usageEvent.Source)
+                ? "CognitiveMesh"
+                : usageEvent.Source,
+            Provider = string.IsNullOrWhiteSpace(usageEvent.Provider)
+                ? "sluice"
+                : usageEvent.Provider,
+            Model = string.IsNullOrWhiteSpace(usageEvent.Model) ? "default" : usageEvent.Model,
+            Status = string.IsNullOrWhiteSpace(usageEvent.Status) ? "recorded" : usageEvent.Status,
+            PolicyOutcome = string.IsNullOrWhiteSpace(usageEvent.PolicyOutcome)
+                ? "unknown"
+                : usageEvent.PolicyOutcome,
+            OccurredAt = usageEvent.OccurredAt == default
+                ? DateTimeOffset.UtcNow
+                : usageEvent.OccurredAt,
+            PromptTokens = promptTokens,
+            CompletionTokens = completionTokens,
+            TotalTokens = usageEvent.TotalTokens > 0
+                ? usageEvent.TotalTokens
+                : promptTokens + completionTokens,
+            EstimatedCostUsd = Math.Max(0, usageEvent.EstimatedCostUsd)
+        };
+    }
+
+    private async Task ForwardUsageAsync(
+        DocketUsageEvent usageEvent,
+        CancellationToken cancellationToken)
+    {
+        var baseUrl = _configuration["Docket:BaseUrl"]
+            ?? _configuration["DOCKET_BASE_URL"]
+            ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(baseUrl))
+        {
+            return;
+        }
+
+        try
+        {
+            using var request = new HttpRequestMessage(
+                HttpMethod.Post,
+                new Uri(new Uri(baseUrl.TrimEnd('/') + "/"), "usage/model-events"));
+
+            await AddAuthenticationAsync(request, cancellationToken).ConfigureAwait(false);
+            request.Content = JsonContent.Create(ToDocketPayload(usageEvent), options: JsonOptions);
+
+            using var response = await _httpClient
+                .SendAsync(request, cancellationToken)
+                .ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning(
+                    "Docket usage ingestion returned {StatusCode} for correlation {CorrelationId}",
+                    (int)response.StatusCode,
+                    usageEvent.CorrelationId);
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(
+                ex,
+                "Docket usage ingestion failed for correlation {CorrelationId}",
+                usageEvent.CorrelationId);
+        }
+    }
+
+    private async Task AddAuthenticationAsync(
+        HttpRequestMessage request,
+        CancellationToken cancellationToken)
+    {
+        var apiKey = _configuration["Docket:ApiKey"] ?? _configuration["DOCKET_API_KEY"];
+        if (!string.IsNullOrWhiteSpace(apiKey))
+        {
+            request.Headers.Add("X-API-Key", apiKey);
+            return;
+        }
+
+        var staticBearer = _configuration["Docket:BearerToken"]
+            ?? _configuration["DOCKET_BEARER_TOKEN"];
+        if (!string.IsNullOrWhiteSpace(staticBearer))
+        {
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", staticBearer);
+            return;
+        }
+
+        var scope = _configuration["Docket:Scope"] ?? _configuration["DOCKET_SCOPE"];
+        var audience = _configuration["Docket:Audience"] ?? _configuration["DOCKET_AUDIENCE"];
+        if (string.IsNullOrWhiteSpace(scope) && !string.IsNullOrWhiteSpace(audience))
+        {
+            scope = audience.TrimEnd('/') + "/.default";
+        }
+
+        if (string.IsNullOrWhiteSpace(scope))
+        {
+            return;
+        }
+
+        var token = await _credential
+            .GetTokenAsync(new TokenRequestContext([scope]), cancellationToken)
+            .ConfigureAwait(false);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Token);
+    }
+
+    private static object ToDocketPayload(DocketUsageEvent usageEvent)
+    {
+        return new
+        {
+            correlationId = usageEvent.CorrelationId,
+            source = usageEvent.Source,
+            provider = usageEvent.Provider,
+            model = usageEvent.Model,
+            promptTokens = usageEvent.PromptTokens,
+            completionTokens = usageEvent.CompletionTokens,
+            totalTokens = usageEvent.TotalTokens,
+            estimatedCostUsd = usageEvent.EstimatedCostUsd,
+            status = usageEvent.Status,
+            policyOutcome = usageEvent.PolicyOutcome,
+            occurredAt = usageEvent.OccurredAt
+        };
+    }
+
+    private static TokenCredential CreateCredential(IConfiguration configuration)
+    {
+        var managedIdentityClientId = configuration["Docket:ManagedIdentityClientId"]
+            ?? configuration["DOCKET_MANAGED_IDENTITY_CLIENT_ID"]
+            ?? configuration["AZURE_CLIENT_ID"];
+
+        return string.IsNullOrWhiteSpace(managedIdentityClientId)
+            ? new DefaultAzureCredential()
+            : new DefaultAzureCredential(new DefaultAzureCredentialOptions
+            {
+                ManagedIdentityClientId = managedIdentityClientId
+            });
     }
 }
 
@@ -355,6 +506,15 @@ internal sealed record ModelRoutingStatus(
         var docketBaseUrl = configuration["Docket:BaseUrl"]
             ?? configuration["DOCKET_BASE_URL"]
             ?? string.Empty;
+        var docketAuthConfigured =
+            !string.IsNullOrWhiteSpace(configuration["Docket:ApiKey"] ?? configuration["DOCKET_API_KEY"])
+            || !string.IsNullOrWhiteSpace(configuration["Docket:BearerToken"] ?? configuration["DOCKET_BEARER_TOKEN"])
+            || !string.IsNullOrWhiteSpace(configuration["Docket:Scope"] ?? configuration["DOCKET_SCOPE"])
+            || !string.IsNullOrWhiteSpace(configuration["Docket:Audience"] ?? configuration["DOCKET_AUDIENCE"]);
+        var docketConfigured = !string.IsNullOrWhiteSpace(docketBaseUrl);
+        var docketMode = docketConfigured
+            ? docketAuthConfigured ? "external-auth-configured" : "external-auth-missing"
+            : "in-memory";
 
         var configured = !string.IsNullOrWhiteSpace(baseUrl);
         return new ModelRoutingStatus(
@@ -364,8 +524,8 @@ internal sealed record ModelRoutingStatus(
             configured ? baseUrl : "not configured",
             configured,
             directFallback,
-            !string.IsNullOrWhiteSpace(docketBaseUrl),
-            string.IsNullOrWhiteSpace(docketBaseUrl) ? "in-memory" : "external-ready",
+            docketConfigured,
+            docketMode,
             DateTimeOffset.UtcNow,
             Guid.NewGuid().ToString(),
             routingEvents.Count,
