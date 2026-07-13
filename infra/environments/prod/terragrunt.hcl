@@ -31,9 +31,13 @@ inputs = {
   shared_acr_resource_group_name = "mys-global-shared-rg"
 
   webapp_service_plan_sku         = "S1"
-  api_container_image             = "cognitive-mesh-api:latest"
-  frontend_container_image        = "cognitive-mesh-frontend:latest"
+  api_container_image             = "cognitive-mesh-api:sha-6e1e8fc"
+  frontend_container_image        = "cognitive-mesh-frontend:sha-5b76bf3"
   api_public_base_url             = "https://api.cognitivemesh.neuralliquid.ai"
+  api_sluice_base_url             = "https://litellm.sluice.phoenixvc.tech"
+  api_sluice_model                = "default"
+  api_sluice_max_tokens           = 16384
+  api_docket_base_url             = ""
   frontend_mystira_auth_client_id = "d8182e32-4dda-4fc9-83bf-b5d517bc9528"
   frontend_mystira_tenant_id      = "9530cd32-9e33-47f0-9247-ed964730b580"
   api_allowed_origins = [

@@ -267,6 +267,30 @@ variable "api_allowed_origins" {
   default     = []
 }
 
+variable "api_sluice_base_url" {
+  description = "Sluice gateway base URL for Cognitive Mesh model egress. Keep empty until the production endpoint and auth are confirmed."
+  type        = string
+  default     = ""
+}
+
+variable "api_sluice_model" {
+  description = "Logical Sluice model route used by Cognitive Mesh."
+  type        = string
+  default     = "default"
+}
+
+variable "api_sluice_max_tokens" {
+  description = "Maximum output tokens Cognitive Mesh may request through Sluice."
+  type        = number
+  default     = 16384
+}
+
+variable "api_docket_base_url" {
+  description = "Docket API base URL for model-usage attribution. Keep empty until the production endpoint and auth are confirmed."
+  type        = string
+  default     = ""
+}
+
 variable "frontend_mystira_auth_client_id" {
   description = "Public Entra application client ID used by the frontend for Mystira identity login."
   type        = string
