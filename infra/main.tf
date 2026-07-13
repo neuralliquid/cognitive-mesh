@@ -188,6 +188,8 @@ module "webapps" {
   api_sluice_model                = var.api_sluice_model
   api_sluice_max_tokens           = var.api_sluice_max_tokens
   api_docket_base_url             = var.api_docket_base_url
+  api_docket_audience             = var.api_docket_audience
+  api_docket_scope                = var.api_docket_scope
   frontend_mystira_auth_client_id = var.frontend_mystira_auth_client_id
   frontend_mystira_tenant_id      = var.frontend_mystira_tenant_id
   common_tags                     = local.tags

@@ -143,7 +143,15 @@ jobs:
               Cors__AllowedOrigins__3=https://control.cognitive-mesh.neuralliquid.ai \
               Cors__AllowedOrigins__4=https://cognitivemesh.neuralliquid.ai \
               Cors__AllowedOrigins__5=https://app.cognitivemesh.neuralliquid.ai \
-              Cors__AllowedOrigins__6=https://frontend.cognitivemesh.neuralliquid.ai
+              Cors__AllowedOrigins__6=https://frontend.cognitivemesh.neuralliquid.ai \
+              ALLOW_DIRECT_MODEL_PROVIDER=false \
+              DOCKET_BASE_URL="${{ vars.COGMESH_DOCKET_BASE_URL || 'https://docket.phoenixvc.tech' }}" \
+              DOCKET_AUDIENCE="${{ vars.COGMESH_DOCKET_AUDIENCE || 'api://f6c75495-4566-4263-9045-d2f4818b892d' }}" \
+              DOCKET_SCOPE="${{ vars.COGMESH_DOCKET_SCOPE }}" \
+              SLUICE_BASE_URL="${{ vars.COGMESH_SLUICE_BASE_URL }}" \
+              SLUICE_MODEL="${{ vars.COGMESH_SLUICE_MODEL || 'default' }}" \
+              SLUICE_MAX_TOKENS="${{ vars.COGMESH_SLUICE_MAX_TOKENS || '16384' }}" \
+              SLUICE_API_KEY="${{ secrets.COGMESH_SLUICE_API_KEY }}"
 
       - name: Restart staging slot
         run: |
@@ -201,7 +209,15 @@ jobs:
               Cors__AllowedOrigins__3=https://control.cognitive-mesh.neuralliquid.ai \
               Cors__AllowedOrigins__4=https://cognitivemesh.neuralliquid.ai \
               Cors__AllowedOrigins__5=https://app.cognitivemesh.neuralliquid.ai \
-              Cors__AllowedOrigins__6=https://frontend.cognitivemesh.neuralliquid.ai
+              Cors__AllowedOrigins__6=https://frontend.cognitivemesh.neuralliquid.ai \
+              ALLOW_DIRECT_MODEL_PROVIDER=false \
+              DOCKET_BASE_URL="${{ vars.COGMESH_DOCKET_BASE_URL || 'https://docket.phoenixvc.tech' }}" \
+              DOCKET_AUDIENCE="${{ vars.COGMESH_DOCKET_AUDIENCE || 'api://f6c75495-4566-4263-9045-d2f4818b892d' }}" \
+              DOCKET_SCOPE="${{ vars.COGMESH_DOCKET_SCOPE }}" \
+              SLUICE_BASE_URL="${{ vars.COGMESH_SLUICE_BASE_URL }}" \
+              SLUICE_MODEL="${{ vars.COGMESH_SLUICE_MODEL || 'default' }}" \
+              SLUICE_MAX_TOKENS="${{ vars.COGMESH_SLUICE_MAX_TOKENS || '16384' }}" \
+              SLUICE_API_KEY="${{ secrets.COGMESH_SLUICE_API_KEY }}"
 
       - name: Restart production
         run: |

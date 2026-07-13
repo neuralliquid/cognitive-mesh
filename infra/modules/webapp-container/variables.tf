@@ -115,6 +115,18 @@ variable "api_docket_base_url" {
   default     = ""
 }
 
+variable "api_docket_audience" {
+  description = "Docket API audience used to derive the /.default client-credentials scope for managed identity auth."
+  type        = string
+  default     = ""
+}
+
+variable "api_docket_scope" {
+  description = "Explicit Docket API scope for managed identity auth. Overrides api_docket_audience when set."
+  type        = string
+  default     = ""
+}
+
 variable "frontend_mystira_auth_client_id" {
   description = "Public Entra application client ID used by the frontend for Mystira identity login."
   type        = string
