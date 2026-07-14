@@ -33,11 +33,31 @@ locals {
     } : {}
   )
 
+  api_docket_secret_app_settings = var.api_docket_api_key_secret_uri == "" ? {} : {
+    DOCKET_API_KEY = "@Microsoft.KeyVault(SecretUri=${var.api_docket_api_key_secret_uri})"
+  }
+
   api_docket_app_settings = var.api_docket_base_url == "" ? {} : merge({
     DOCKET_BASE_URL = var.api_docket_base_url
-  }, local.api_docket_scope_app_settings)
+  }, local.api_docket_scope_app_settings, local.api_docket_secret_app_settings)
 
   api_optional_routing_app_settings = merge(local.api_sluice_app_settings, local.api_docket_app_settings)
+
+  frontend_oidc_secret_app_settings = var.frontend_mystira_oidc_client_secret_secret_uri == "" ? {} : {
+    MYSTIRA_OIDC_CLIENT_SECRET = "@Microsoft.KeyVault(SecretUri=${var.frontend_mystira_oidc_client_secret_secret_uri})"
+  }
+
+  frontend_app_settings = merge({
+    NEXT_PUBLIC_API_BASE_URL            = var.api_base_url
+    NEXT_PUBLIC_MYSTIRA_AUTH_CLIENT_ID  = var.frontend_mystira_auth_client_id
+    NEXT_PUBLIC_MYSTIRA_TENANT_ID       = var.frontend_mystira_tenant_id
+    NEXT_PUBLIC_SHOW_PREVIEW_NAV        = tostring(var.frontend_show_preview_nav)
+    MYSTIRA_IDENTITY_BASE_URL           = var.frontend_mystira_identity_base_url
+    MYSTIRA_OIDC_CLIENT_ID              = var.frontend_mystira_oidc_client_id
+    NODE_ENV                            = "production"
+    WEBSITES_ENABLE_APP_SERVICE_STORAGE = "false"
+    WEBSITES_PORT                       = tostring(var.frontend_port)
+  }, local.frontend_oidc_secret_app_settings)
 }
 
 resource "azurerm_service_plan" "this" {
@@ -81,6 +101,12 @@ resource "azurerm_linux_web_app" "api" {
     WEBSITES_PORT                       = tostring(var.api_port)
   }, local.api_cors_app_settings, local.api_required_routing_app_settings, local.api_optional_routing_app_settings)
 
+  lifecycle {
+    ignore_changes = [
+      app_settings["DOCKET_API_KEY"]
+    ]
+  }
+
   tags = merge(var.common_tags, {
     Module = "webapp-container"
     Role   = "api"
@@ -114,6 +140,12 @@ resource "azurerm_linux_web_app_slot" "api_staging" {
     WEBSITES_PORT                       = tostring(var.api_port)
   }, local.api_cors_app_settings, local.api_required_routing_app_settings, local.api_optional_routing_app_settings)
 
+  lifecycle {
+    ignore_changes = [
+      app_settings["DOCKET_API_KEY"]
+    ]
+  }
+
   tags = merge(var.common_tags, {
     Module = "webapp-container"
     Role   = "api-staging-slot"
@@ -143,13 +175,12 @@ resource "azurerm_linux_web_app" "frontend" {
     }
   }
 
-  app_settings = {
-    NEXT_PUBLIC_API_BASE_URL            = var.api_base_url
-    NEXT_PUBLIC_MYSTIRA_AUTH_CLIENT_ID  = var.frontend_mystira_auth_client_id
-    NEXT_PUBLIC_MYSTIRA_TENANT_ID       = var.frontend_mystira_tenant_id
-    NODE_ENV                            = "production"
-    WEBSITES_ENABLE_APP_SERVICE_STORAGE = "false"
-    WEBSITES_PORT                       = tostring(var.frontend_port)
+  app_settings = local.frontend_app_settings
+
+  lifecycle {
+    ignore_changes = [
+      app_settings["MYSTIRA_OIDC_CLIENT_SECRET"]
+    ]
   }
 
   tags = merge(var.common_tags, {
@@ -179,13 +210,12 @@ resource "azurerm_linux_web_app_slot" "frontend_staging" {
     }
   }
 
-  app_settings = {
-    NEXT_PUBLIC_API_BASE_URL            = var.api_base_url
-    NEXT_PUBLIC_MYSTIRA_AUTH_CLIENT_ID  = var.frontend_mystira_auth_client_id
-    NEXT_PUBLIC_MYSTIRA_TENANT_ID       = var.frontend_mystira_tenant_id
-    NODE_ENV                            = "production"
-    WEBSITES_ENABLE_APP_SERVICE_STORAGE = "false"
-    WEBSITES_PORT                       = tostring(var.frontend_port)
+  app_settings = local.frontend_app_settings
+
+  lifecycle {
+    ignore_changes = [
+      app_settings["MYSTIRA_OIDC_CLIENT_SECRET"]
+    ]
   }
 
   tags = merge(var.common_tags, {

@@ -127,6 +127,12 @@ variable "api_docket_scope" {
   default     = ""
 }
 
+variable "api_docket_api_key_secret_uri" {
+  description = "Key Vault secret URI for the Docket API key. The App Service receives this as a Key Vault reference, not a raw secret value."
+  type        = string
+  default     = ""
+}
+
 variable "frontend_mystira_auth_client_id" {
   description = "Public Entra application client ID used by the frontend for Mystira identity login."
   type        = string
@@ -135,6 +141,30 @@ variable "frontend_mystira_auth_client_id" {
 
 variable "frontend_mystira_tenant_id" {
   description = "Mystira Entra tenant ID used by the frontend for identity login."
+  type        = string
+  default     = ""
+}
+
+variable "frontend_show_preview_nav" {
+  description = "Whether the frontend exposes preview navigation links."
+  type        = bool
+  default     = false
+}
+
+variable "frontend_mystira_identity_base_url" {
+  description = "Mystira identity service base URL used by the frontend server-side auth routes."
+  type        = string
+  default     = "https://identity.mystira.app"
+}
+
+variable "frontend_mystira_oidc_client_id" {
+  description = "Mystira OIDC client ID used by the frontend server-side auth routes."
+  type        = string
+  default     = "neuralliquid-cognitive-mesh-web"
+}
+
+variable "frontend_mystira_oidc_client_secret_secret_uri" {
+  description = "Key Vault secret URI for the Mystira OIDC client secret. The App Service receives this as a Key Vault reference, not a raw secret value."
   type        = string
   default     = ""
 }

@@ -361,6 +361,11 @@ resolved_blockers:
   - Repository transfer completed on 2026-07-14; old phoenixvc/cognitive-mesh API path redirects to neuralliquid/cognitive-mesh.
   - Target repository variables, secrets, environments, ruleset, Actions enablement, active workflows, OIDC federated credentials, and no-webhook/no-Pages state were validated after transfer without reading secret values.
   - API and frontend deploys ran successfully from neuralliquid/cognitive-mesh on dev and deployed sha-5e0567a images to production and staging.
+  - Post-transfer hardening restored mareeben admin access, reconciled prod App Service Terraform drift, and applied a zero-destroy prod update.
+  - Root Terragrunt configuration moved from infra/terragrunt.hcl to infra/root.hcl; environment includes now use find_in_parent_folders("root.hcl").
+  - NeuralLiquid Cognitive Mesh Terraform state now manages the public DNS CNAME/TXT records for cognitive-mesh.neuralliquid.ai, control.cognitive-mesh.neuralliquid.ai, and api.cognitivemesh.neuralliquid.ai.
+  - Full prod Terragrunt plan reported no changes after App Service reconciliation and DNS imports.
+  - Docket-backed attribution path was re-smoked with synthetic correlation codex-docket-smoke-20260714233933; CogMesh accepted the event and Docket logs showed POST /usage/model-events returned 200 OK. Treat as technical readiness evidence, not real funding usage volume.
 
 validation:
   local_searches:

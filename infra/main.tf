@@ -172,27 +172,32 @@ module "webapps" {
   count  = var.enable_webapps ? 1 : 0
   source = "./modules/webapp-container"
 
-  project_name                    = var.project_name
-  environment                     = var.environment
-  location                        = var.location
-  resource_group_name             = azurerm_resource_group.this.name
-  shared_acr_name                 = var.shared_acr_name
-  shared_acr_resource_group_name  = var.shared_acr_resource_group_name
-  app_service_plan_sku            = var.webapp_service_plan_sku
-  api_image_name                  = var.api_container_image
-  frontend_image_name             = var.frontend_container_image
-  api_base_url                    = var.api_public_base_url
-  api_allowed_origins             = var.api_allowed_origins
-  api_sluice_base_url             = var.api_sluice_base_url
-  api_sluice_api_key_secret_uri   = var.api_sluice_api_key_secret_uri
-  api_sluice_model                = var.api_sluice_model
-  api_sluice_max_tokens           = var.api_sluice_max_tokens
-  api_docket_base_url             = var.api_docket_base_url
-  api_docket_audience             = var.api_docket_audience
-  api_docket_scope                = var.api_docket_scope
-  frontend_mystira_auth_client_id = var.frontend_mystira_auth_client_id
-  frontend_mystira_tenant_id      = var.frontend_mystira_tenant_id
-  common_tags                     = local.tags
+  project_name                                   = var.project_name
+  environment                                    = var.environment
+  location                                       = var.location
+  resource_group_name                            = azurerm_resource_group.this.name
+  shared_acr_name                                = var.shared_acr_name
+  shared_acr_resource_group_name                 = var.shared_acr_resource_group_name
+  app_service_plan_sku                           = var.webapp_service_plan_sku
+  api_image_name                                 = var.api_container_image
+  frontend_image_name                            = var.frontend_container_image
+  api_base_url                                   = var.api_public_base_url
+  api_allowed_origins                            = var.api_allowed_origins
+  api_sluice_base_url                            = var.api_sluice_base_url
+  api_sluice_api_key_secret_uri                  = var.api_sluice_api_key_secret_uri
+  api_sluice_model                               = var.api_sluice_model
+  api_sluice_max_tokens                          = var.api_sluice_max_tokens
+  api_docket_base_url                            = var.api_docket_base_url
+  api_docket_audience                            = var.api_docket_audience
+  api_docket_scope                               = var.api_docket_scope
+  api_docket_api_key_secret_uri                  = var.api_docket_api_key_secret_uri
+  frontend_mystira_auth_client_id                = var.frontend_mystira_auth_client_id
+  frontend_mystira_tenant_id                     = var.frontend_mystira_tenant_id
+  frontend_show_preview_nav                      = var.frontend_show_preview_nav
+  frontend_mystira_identity_base_url             = var.frontend_mystira_identity_base_url
+  frontend_mystira_oidc_client_id                = var.frontend_mystira_oidc_client_id
+  frontend_mystira_oidc_client_secret_secret_uri = var.frontend_mystira_oidc_client_secret_secret_uri
+  common_tags                                    = local.tags
 }
 
 # ---------- Store secrets in Key Vault ----------

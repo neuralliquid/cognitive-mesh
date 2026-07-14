@@ -221,7 +221,7 @@ Batch 3 transfer and target-org validation:
 - Target repo environments returned by GitHub: `copilot` and `production`; production has no protection rules.
 - Target repo has one disabled repository ruleset, `Main Branch Protection` (`13093301`), targeting the default branch.
 - Target repo webhooks list is empty; GitHub Pages endpoint returns 404.
-- Visible target collaborators: `JustAGhosT` admin and `mareeben` write. Before transfer, `mareeben` appeared as admin; this permission change should be reviewed if admin access is still required.
+- Visible target collaborators were restored to `JustAGhosT` admin and `mareeben` admin.
 - Actions are enabled and workflows are active.
 - OIDC app registration `nl-cognitive-mesh-github-actions` has NeuralLiquid federated subjects for `dev`, `main`, and `production`.
 - Target-org deploy runs completed successfully:
@@ -252,15 +252,22 @@ Batch 3 transfer and target-org validation:
   - Devin (`68460896`) does not include `phoenixvc/cognitive-mesh`, accepted because Devin is inactive for this transfer.
   - phoenixvc-actions-runner (`111911804`) has zero repositories, accepted because the runner app is not currently deployed.
 
-## Batch 3 Org Migration Tasks
+## Batch 3 Hardening Closeout - 2026-07-14
 
-1. Review whether `mareeben` should be restored from write to admin on the transferred repository.
-2. Reconcile frontend App Service Terraform drift before any full prod Terraform apply.
-3. Decide DNS ownership timing:
-   - Keep `mystira-workspace` DNS as a temporary bridge if it currently owns the zones.
-   - Move NeuralLiquid-owned DNS/deployment state into NeuralLiquid-owned infra before long-term production.
-4. Move NeuralLiquid-owned DNS/deployment state into NeuralLiquid-owned infra before long-term production.
-5. Verify Docket-backed cost-attribution evidence before using the migration as funding evidence.
+- Restored `mareeben` to admin on `neuralliquid/cognitive-mesh`.
+- Reconciled prod Terraform drift and applied a zero-destroy App Service update:
+  - API/frontend images now pin to `sha-5e0567a`.
+  - Frontend Mystira identity and preview-nav settings are Terraform-managed.
+  - Docket and Mystira OIDC secret settings are preserved until their Key Vault references are supplied.
+- Renamed the Terragrunt root config to `infra/root.hcl` and updated environment includes; prod validation no longer emits the root `terragrunt.hcl` anti-pattern warning.
+- Moved Cognitive Mesh public DNS records into the NeuralLiquid Cognitive Mesh Terraform state:
+  - CNAME: `cognitive-mesh`, `control.cognitive-mesh`, `api.cognitivemesh`.
+  - TXT: `asuid.cognitive-mesh`, `asuid.control.cognitive-mesh`, `asuid.api.cognitivemesh`.
+- Full prod `terragrunt plan -no-color --working-dir infra/environments/prod` returned no changes after App Service reconciliation and DNS imports.
+- Health checks succeeded for API prod/staging, frontend prod/staging, `api.cognitivemesh.neuralliquid.ai`, `cognitive-mesh.neuralliquid.ai`, and `control.cognitive-mesh.neuralliquid.ai`.
+- Docket-backed attribution path was re-smoked with synthetic correlation `codex-docket-smoke-20260714233933`; CogMesh accepted the event and Docket Container App logs showed `POST /usage/model-events HTTP/1.1` returned `200 OK` at `2026-07-14T21:40:05Z`.
+
+Remaining evidence caveat: the Docket check verifies technical ingestion readiness, not real production cost volume. Funding claims should wait for accumulated Sluice-routed workload usage and a FinOps review.
 
 ## Handoff - 2026-07-13 Sluice/Docket Migration Prep
 
