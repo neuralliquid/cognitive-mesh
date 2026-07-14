@@ -8,7 +8,7 @@ Scope: `phoenixvc/cognitive-mesh` to `neuralliquid/cognitive-mesh`.
 
 Status: Batch 2 closeout / repository transfer still not performed.
 
-Reason: Batch 2 migration artifacts and routing prep are merged into `dev`, and production now has Docket plus Sluice routing settings applied. Repository transfer remains undone and should wait for the final org/OIDC/secrets/DNS checklist plus one Docket ingestion readback smoke if the canonical Docket API continues to show intermittent connectivity.
+Reason: Batch 2 migration artifacts and routing prep are merged into `dev`, and production now has Docket plus Sluice routing settings applied. Repository transfer remains undone and should be routed through the Baton Migration Coordinator for org/OIDC/secrets/DNS work, the Baton Evidence and Claims Auditor for Docket ingestion evidence, and the Baton FinOps and Runway Analyst for cost-attribution readiness. Preserve the transfer block until those prerequisites are verified.
 
 ## Evidence Reviewed
 
@@ -122,19 +122,25 @@ These checks verify status surfaces, not full live Sluice model execution or can
   - `SLUICE_BASE_URL=https://litellm.sluice.phoenixvc.tech`
   - `SLUICE_MODEL=default`
   - `SLUICE_MAX_TOKENS=16384`
-  - `SLUICE_API_KEY` set from the existing Sluice Container App `gateway-key` secret without printing the value.
+  - `SLUICE_API_KEY` now set through a Key Vault reference to the Sluice `gateway-key` secret.
 - Restarted the production API app and staging slot.
 - Verified both production and staging `/api/v1/sluice/health` return `status=configured`, `sluiceConfigured=true`, `directProviderFallbackAllowed=false`, `docketConfigured=true`, and `docketMode=external-auth-configured`.
 - Verified unauthenticated Sluice `/v1/models` returns HTTP 401, confirming gateway model routes require an API key.
 - Verified authenticated Sluice `/v1/models` returns HTTP 200 and the configured route list when called with the gateway key.
 - Verified `https://docket.phoenixvc.tech/health` returns HTTP 200 with `{"status":"ok","backend":"table"}`.
-- Observed an intermittent CLI connection failure while fetching `https://docket.phoenixvc.tech/openapi.json`; keep a final Docket ingestion/readback smoke on the transfer checklist.
+- Verified `https://docket.phoenixvc.tech/openapi.json` returns the model usage ingestion routes `/usage/model-events` and `/api/v1/usage/model-events`.
+- Ran a production Docket usage-ingestion smoke through CogMesh:
+  - CogMesh `POST /api/v1/docket/usage` returned HTTP 202 for correlation `codex-smoke-20260714134919`.
+  - Docket production Container App logs show `POST /usage/model-events HTTP/1.1` returned HTTP 200 at `2026-07-14T11:49:50Z`.
 - Updated `.github/workflows/deploy.yml` to support `COGMESH_SLUICE_API_KEY` as a temporary direct-secret bridge in addition to the preferred `COGMESH_SLUICE_API_KEY_SECRET_URI` Key Vault path.
+- Set `COGMESH_SLUICE_API_KEY_SECRET_URI` to the Sluice Key Vault `gateway-key` secret URI.
+- Removed the temporary direct `COGMESH_SLUICE_API_KEY` GitHub secret after Key Vault wiring was in place.
+- Rotated the Sluice gateway key on 2026-07-14 after an app-setting value query exposed the previous value in local tool output.
+- Verified Azure config-reference status for production and staging `SLUICE_API_KEY` is `Resolved`.
 
 ## Remaining Before Transfer
 
-1. Publish and merge the deploy-workflow durability patch that adds the `COGMESH_SLUICE_API_KEY` bridge.
-2. Preferably move the Sluice gateway key into Key Vault and set `COGMESH_SLUICE_API_KEY_SECRET_URI`; until then, avoid full Terraform apply unless the plan is reviewed for app-setting drift.
-3. Run one final Docket usage-ingestion smoke with readback or log evidence when `docket.phoenixvc.tech` is stable.
-4. Add `neuralliquid/cognitive-mesh` OIDC federated credential subjects or create a NeuralLiquid-owned deployment identity.
-5. Recreate/validate repository variables, secrets, environments, app installations, and DNS/custom-domain ownership after transfer.
+1. Publish and merge the deploy-workflow durability patch that keeps the Sluice Key Vault URI path and optional direct-secret fallback.
+2. Reconcile frontend App Service Terraform drift before any full prod apply.
+3. Add `neuralliquid/cognitive-mesh` OIDC federated credential subjects or create a NeuralLiquid-owned deployment identity.
+4. Recreate/validate repository variables, secrets, environments, app installations, and DNS/custom-domain ownership after transfer.

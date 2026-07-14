@@ -7,7 +7,7 @@
 #   AZURE_CLIENT_ID
 #   AZURE_TENANT_ID
 #   AZURE_SUBSCRIPTION_ID
-#   COGMESH_SLUICE_API_KEY (temporary bridge until a Key Vault reference is used)
+#   COGMESH_SLUICE_API_KEY (optional temporary bridge if a Key Vault reference is unavailable)
 #
 # Required repository or organization variables:
 #   AZURE_WEBAPP_RESOURCE_GROUP

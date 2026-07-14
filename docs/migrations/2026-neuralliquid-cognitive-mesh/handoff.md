@@ -169,10 +169,13 @@ Current production behavior:
   - `COGMESH_SLUICE_BASE_URL=https://litellm.sluice.phoenixvc.tech`
   - `COGMESH_SLUICE_MODEL=default`
   - `COGMESH_SLUICE_MAX_TOKENS=16384`
+  - `COGMESH_SLUICE_API_KEY_SECRET_URI` pointing at the Sluice Key Vault `gateway-key` secret.
 - GitHub repo secrets now include:
   - `COGMESH_DOCKET_API_KEY`
-  - `COGMESH_SLUICE_API_KEY`
-- CogMesh production and staging API App Service settings now include `DOCKET_BASE_URL`, `DOCKET_API_KEY`, `SLUICE_BASE_URL`, `SLUICE_API_KEY`, `SLUICE_MODEL`, `SLUICE_MAX_TOKENS`, and `ALLOW_DIRECT_MODEL_PROVIDER=false`.
+- The temporary direct `COGMESH_SLUICE_API_KEY` GitHub secret was removed after the Key Vault reference was configured.
+- CogMesh production and staging API App Service settings now include `DOCKET_BASE_URL`, `DOCKET_API_KEY`, `SLUICE_BASE_URL`, Key Vault referenced `SLUICE_API_KEY`, `SLUICE_MODEL`, `SLUICE_MAX_TOKENS`, and `ALLOW_DIRECT_MODEL_PROVIDER=false`.
+- The Sluice gateway key was rotated on 2026-07-14 after an app-setting value query exposed the previous value in local tool output.
+- The production and staging `SLUICE_API_KEY` Key Vault references both report `Resolved`.
 - Both production and staging API apps were restarted after Sluice settings were applied.
 - `https://api.cognitivemesh.neuralliquid.ai/api/v1/sluice/health` now reports:
   - `status=configured`
@@ -180,13 +183,15 @@ Current production behavior:
   - `directProviderFallbackAllowed=false`
   - `docketConfigured=true`
   - `docketMode=external-auth-configured`
-- `https://cognitive-mesh-api-prod-staging.azurewebsites.net/api/v1/sluice/health` reports the same configured state.
+- `https://cognitive-mesh-api-prod-staging.azurewebsites.net/api/v1/sluice/health` previously reported the same configured state before the Key Vault rotation; after rotation, its Key Vault reference is resolved, but the final HTTP health retry should be repeated if the slot is needed for transfer validation.
 - Authenticated Sluice gateway check succeeded:
   - `GET https://litellm.sluice.phoenixvc.tech/v1/models` returned HTTP 200 with the configured model routes when called with the gateway key.
 - Docket health check succeeded:
   - `GET https://docket.phoenixvc.tech/health` returned HTTP 200 with `{"status":"ok","backend":"table"}`.
-- Docket OpenAPI fetch was intermittently unreachable from the CLI after a successful health check; keep one final Docket ingestion/readback smoke in the transfer checklist if the Docket API is flapping.
-- Durability note: Terraform supports Sluice API keys through `COGMESH_SLUICE_API_KEY_SECRET_URI` / Key Vault references. The current production bridge uses a GitHub Actions secret plus direct App Service app setting; move this to Key Vault before treating Terraform full apply as safe.
+- Docket usage-ingestion smoke succeeded through CogMesh production:
+  - `POST https://api.cognitivemesh.neuralliquid.ai/api/v1/docket/usage` returned HTTP 202 for correlation `codex-smoke-20260714134919`.
+  - Docket production Container App logs show `POST /usage/model-events HTTP/1.1` returned `200 OK` at `2026-07-14T11:49:50Z`.
+- Durability note: Terraform full apply still needs review because existing App Service drift can affect frontend settings and image tags, but Sluice secret wiring now uses the preferred Key Vault reference path.
 
 ## Transfer Baseline Refresh - 2026-07-13
 
@@ -286,10 +291,9 @@ rollback_state:
   - Docket hostname rollback is to repoint docket.phoenixvc.tech CNAME away from the Container App and remove the Container App hostname binding.
   - Cognitive Mesh changes remain local documentation and Terraform configuration only.
 next_action:
-  - Define and implement CogMesh-to-Docket authenticated production usage ingestion before setting DOCKET_BASE_URL to https://docket.phoenixvc.tech.
+  - Keep CogMesh-to-Docket usage ingestion configured through `https://docket.phoenixvc.tech`; production smoke succeeded on 2026-07-14.
   - Reconcile frontend App Service Terraform drift before any full prod apply.
-  - Apply Sluice routing settings only after Sluice auth is confirmed and `COGMESH_SLUICE_BASE_URL` plus `COGMESH_SLUICE_API_KEY_SECRET_URI` are supplied.
-  - Continue CogMesh org migration only after Sluice/Docket routing blockers are resolved.
+  - Continue CogMesh org migration with OIDC federated credentials, target-org secrets/variables, app-installation coverage, and DNS/custom-domain ownership checks.
 funding_impact:
   - Positive once resolved: Docket plus Sluice will provide credible model usage/cost evidence for AI-credit applications.
   - Current state remains partial because cost attribution is not yet canonical/live through Docket.
