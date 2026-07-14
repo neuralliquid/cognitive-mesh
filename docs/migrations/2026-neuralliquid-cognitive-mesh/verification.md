@@ -6,9 +6,9 @@ Scope: `phoenixvc/cognitive-mesh` to `neuralliquid/cognitive-mesh`.
 
 ## Current Status
 
-Status: Batch 2 closeout / repository transfer still not performed.
+Status: Batch 2 closeout complete for migration prep and Sluice/Docket routing; Batch 3 repository transfer not yet performed.
 
-Reason: Batch 2 migration artifacts and routing prep are merged into `dev`, and production now has Docket plus Sluice routing settings applied. Repository transfer remains undone and should be routed through the Baton Migration Coordinator for org/OIDC/secrets/DNS work, the Baton Evidence and Claims Auditor for Docket ingestion evidence, and the Baton FinOps and Runway Analyst for cost-attribution readiness. Preserve the transfer block until those prerequisites are verified.
+Reason: Batch 2 migration artifacts, routing prep, deploy-workflow durability, Docket usage forwarding, Docket auth settings, and Sluice Key Vault reference wiring are merged into `dev`. Production and staging now report Sluice configured, direct provider fallback disabled, and Docket external auth configured. Repository transfer remains undone and is now the Batch 3 track through the Baton Migration Coordinator for org/OIDC/secrets/DNS work. Preserve the transfer block until the operator explicitly approves the irreversible GitHub transfer step.
 
 ## Evidence Reviewed
 
@@ -95,19 +95,20 @@ These checks verify status surfaces, not full live Sluice model execution or can
 - Sluice authenticated route from CogMesh after auth is configured.
 - Docket authenticated usage-ingestion route from CogMesh after Docket PR #99 and the CogMesh outbound client PR are merged and deployed with production settings.
 
-## Blockers
+## Historical Blockers
 
-- CogMesh-to-Docket code-level contract is implemented but not production-smoked. Merge and deploy Docket PR #99, merge and deploy the CogMesh outbound client PR, then set `DOCKET_BASE_URL` plus either `DOCKET_AUDIENCE`/`DOCKET_SCOPE` for Entra app-role auth or `DOCKET_API_KEY` for the short bridge.
-- CogMesh-to-Sluice auth scheme still needs production confirmation.
-- Repository transfer must not proceed until blockers are resolved, even though the clean source build/test baseline is now recorded.
+- CogMesh-to-Docket code-level contract was implemented and production-smoked on 2026-07-14.
+- CogMesh-to-Sluice production auth was confirmed with the gateway key and is now wired through a Key Vault reference.
+- Selected GitHub App repository coverage was cleared by PAT-backed installation repository queries.
+- The remaining transfer gate is operational, not Batch 2 implementation: do not perform the irreversible GitHub repository transfer until explicitly approved for Batch 3 execution.
 
 ## Next Verification Action
 
-1. Merge and deploy Docket PR #99.
-2. Merge and deploy the CogMesh outbound Docket usage client PR.
-3. Configure CogMesh `DOCKET_BASE_URL` and service auth after Docket is deployed.
-4. Confirm CogMesh-to-Sluice production auth.
-5. Run full Terraform validation and prod plan after frontend App Service drift is reconciled.
+1. Reconcile or explicitly accept frontend App Service Terraform drift before any full prod apply.
+2. Confirm final source repository state immediately before transfer.
+3. Perform the GitHub repository transfer to `neuralliquid/cognitive-mesh` only after explicit operator approval.
+4. Recreate/validate target repository variables, secrets, environments, app installations, branch protections/rulesets, and Actions OIDC.
+5. Run final deploys from the target org after target repository settings are validated.
 
 ## Refresh - 2026-07-14
 
@@ -145,11 +146,35 @@ These checks verify status surfaces, not full live Sluice model execution or can
 - Verified `neuralliquid/cognitive-mesh` currently returns GitHub HTTP 404, so target-repository settings cannot be validated until the repository is transferred.
 - Captured current source repository variable and secret names for transfer validation; no secret values were recorded.
 
+## Batch 2 Closeout Refresh - 2026-07-14
+
+- Confirmed local `dev` matches `origin/dev` at `792454d`, after PR #524 and PR #525.
+- Confirmed only open source-repo PR is Renovate PR #494 (`renovate/pin-dependencies`), unrelated to migration transfer.
+- Confirmed source repo variables: `AZURE_WEBAPP_RESOURCE_GROUP`, `COGMESH_DOCKET_BASE_URL`, `COGMESH_SLUICE_API_KEY_SECRET_URI`, `COGMESH_SLUICE_BASE_URL`, `COGMESH_SLUICE_MAX_TOKENS`, `COGMESH_SLUICE_MODEL`, `COGNITIVE_MESH_API_APP_NAME`, `COGNITIVE_MESH_FRONTEND_APP_NAME`, `NEXT_PUBLIC_MYSTIRA_AUTH_CLIENT_ID`, and `NEXT_PUBLIC_MYSTIRA_TENANT_ID`.
+- Confirmed source repo secrets by name only: `AZURE_CLIENT_ID`, `AZURE_SUBSCRIPTION_ID`, `AZURE_TENANT_ID`, `COGMESH_DOCKET_API_KEY`, `SONAR_HOST_URL`, and `SONAR_TOKEN`.
+- Confirmed source repo environments returned by GitHub: `copilot` and `production`.
+- Confirmed production and staging `/api/v1/sluice/health` return `status=configured`, `sluiceConfigured=true`, `directProviderFallbackAllowed=false`, `docketConfigured=true`, and `docketMode=external-auth-configured`.
+- Confirmed production and staging App Service Key Vault references for `SLUICE_API_KEY` report `Resolved` through ARM config-reference reads.
+- Confirmed `https://docket.phoenixvc.tech/health` returns `{"status":"ok","backend":"table"}`.
+- Confirmed `neuralliquid/cognitive-mesh` still returns GitHub HTTP 404. Target-repo settings remain unvalidated because the repository has not been transferred.
+
+## Batch 3 Pre-Transfer Discovery - 2026-07-14
+
+- Baton Batch 3 task opened: `3b3a125b-6db5-4d80-8fb2-422d20f9c9f0`.
+- Source repository metadata: public repository, default branch `dev`, issues/projects/wiki enabled, squash/merge/rebase all allowed, delete-branch-on-merge disabled.
+- Source branches returned by GitHub include `dev`, `main`, `gh-pages`, active agent/renovate/dependabot branches, and historical feature branches; none are reported protected.
+- Source repository rulesets: one repository branch ruleset, `Main Branch Protection` (`13093301`), target default branch, enforcement `disabled`.
+- Source production environment exists and has no protection rules or deployment branch policy.
+- Source repository webhooks list is empty.
+- Source repository topics: `agent-orchestration`, `azure-openai`, `compliance`, `governance`, `observability`, `rbac`, `agent`, `ai`, `csharp`, `dotnet`, `reasoning`, `typescript`, `active`, `phoenixvc`, `neuralliquid`.
+- Source repository collaborators visible through GitHub: `mareeben` admin and `JustAGhosT` admin.
+- GitHub Pages endpoint returns 404, so no active Pages site was visible through the repository Pages API.
+- Target organization `neuralliquid` is visible; target repository `neuralliquid/cognitive-mesh` still returns GitHub HTTP 404.
+
 ## Remaining Before Transfer
 
-1. Publish and merge the deploy-workflow durability patch that keeps the Sluice Key Vault URI path and optional direct-secret fallback.
-2. Baton Migration Coordinator: reconcile frontend App Service Terraform drift before any full prod apply.
-3. Baton Migration Coordinator: perform the actual GitHub repository transfer to `neuralliquid/cognitive-mesh` once approved.
-4. Baton Migration Coordinator: recreate/validate repository variables, secrets, environments, app installations, and DNS/custom-domain ownership after transfer.
-5. Baton FinOps and Runway Analyst: verify Docket-backed cost-attribution readiness from the Sluice-routed CogMesh usage path before using the transfer as funding evidence.
-6. Baton Evidence and Claims Auditor: validate that public migration/funding claims distinguish implemented Sluice/Docket routing from remaining transfer prerequisites.
+1. Baton Migration Coordinator: reconcile frontend App Service Terraform drift before any full prod apply.
+2. Baton Migration Coordinator: perform the actual GitHub repository transfer to `neuralliquid/cognitive-mesh` once explicitly approved.
+3. Baton Migration Coordinator: recreate/validate repository variables, secrets, environments, app installations, branch protections/rulesets, and DNS/custom-domain ownership after transfer.
+4. Baton FinOps and Runway Analyst: verify Docket-backed cost-attribution readiness from the Sluice-routed CogMesh usage path before using the transfer as funding evidence.
+5. Baton Evidence and Claims Auditor: validate that public migration/funding claims distinguish implemented Sluice/Docket routing from remaining transfer prerequisites.
