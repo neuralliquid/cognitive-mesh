@@ -191,6 +191,14 @@ Current production behavior:
 - Docket usage-ingestion smoke succeeded through CogMesh production:
   - `POST https://api.cognitivemesh.neuralliquid.ai/api/v1/docket/usage` returned HTTP 202 for correlation `codex-smoke-20260714134919`.
   - Docket production Container App logs show `POST /usage/model-events HTTP/1.1` returned `200 OK` at `2026-07-14T11:49:50Z`.
+- NeuralLiquid GitHub Actions OIDC federated credentials were added to Entra app registration `nl-cognitive-mesh-github-actions`:
+  - `repo:neuralliquid/cognitive-mesh:ref:refs/heads/dev`
+  - `repo:neuralliquid/cognitive-mesh:ref:refs/heads/main`
+  - `repo:neuralliquid/cognitive-mesh:environment:production`
+- Source repo transfer settings snapshot:
+  - Variables present on `phoenixvc/cognitive-mesh`: `AZURE_WEBAPP_RESOURCE_GROUP`, `COGMESH_DOCKET_BASE_URL`, `COGMESH_SLUICE_API_KEY_SECRET_URI`, `COGMESH_SLUICE_BASE_URL`, `COGMESH_SLUICE_MAX_TOKENS`, `COGMESH_SLUICE_MODEL`, `COGNITIVE_MESH_API_APP_NAME`, `COGNITIVE_MESH_FRONTEND_APP_NAME`, `NEXT_PUBLIC_MYSTIRA_AUTH_CLIENT_ID`, `NEXT_PUBLIC_MYSTIRA_TENANT_ID`.
+  - Secrets present on `phoenixvc/cognitive-mesh`: `AZURE_CLIENT_ID`, `AZURE_SUBSCRIPTION_ID`, `AZURE_TENANT_ID`, `COGMESH_DOCKET_API_KEY`, `SONAR_HOST_URL`, `SONAR_TOKEN`.
+- `neuralliquid/cognitive-mesh` does not currently exist, so target-repo variables, secrets, environments, app installations, and DNS/custom-domain ownership must be validated after the actual GitHub repository transfer.
 - Durability note: Terraform full apply still needs review because existing App Service drift can affect frontend settings and image tags, but Sluice secret wiring now uses the preferred Key Vault reference path.
 
 ## Transfer Baseline Refresh - 2026-07-13

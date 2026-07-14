@@ -137,12 +137,19 @@ These checks verify status surfaces, not full live Sluice model execution or can
 - Removed the temporary direct `COGMESH_SLUICE_API_KEY` GitHub secret after Key Vault wiring was in place.
 - Rotated the Sluice gateway key on 2026-07-14 after an app-setting value query exposed the previous value in local tool output.
 - Verified Azure config-reference status for production and staging `SLUICE_API_KEY` is `Resolved`.
+- Added NeuralLiquid GitHub Actions OIDC federated credential subjects to Entra app registration `nl-cognitive-mesh-github-actions`:
+  - `repo:neuralliquid/cognitive-mesh:ref:refs/heads/dev`
+  - `repo:neuralliquid/cognitive-mesh:ref:refs/heads/main`
+  - `repo:neuralliquid/cognitive-mesh:environment:production`
+- Verified both PhoenixVC and NeuralLiquid federated subjects are present on the deployment identity.
+- Verified `neuralliquid/cognitive-mesh` currently returns GitHub HTTP 404, so target-repository settings cannot be validated until the repository is transferred.
+- Captured current source repository variable and secret names for transfer validation; no secret values were recorded.
 
 ## Remaining Before Transfer
 
 1. Publish and merge the deploy-workflow durability patch that keeps the Sluice Key Vault URI path and optional direct-secret fallback.
 2. Baton Migration Coordinator: reconcile frontend App Service Terraform drift before any full prod apply.
-3. Baton Migration Coordinator: add `neuralliquid/cognitive-mesh` OIDC federated credential subjects or create a NeuralLiquid-owned deployment identity.
+3. Baton Migration Coordinator: perform the actual GitHub repository transfer to `neuralliquid/cognitive-mesh` once approved.
 4. Baton Migration Coordinator: recreate/validate repository variables, secrets, environments, app installations, and DNS/custom-domain ownership after transfer.
 5. Baton FinOps and Runway Analyst: verify Docket-backed cost-attribution readiness from the Sluice-routed CogMesh usage path before using the transfer as funding evidence.
 6. Baton Evidence and Claims Auditor: validate that public migration/funding claims distinguish implemented Sluice/Docket routing from remaining transfer prerequisites.
