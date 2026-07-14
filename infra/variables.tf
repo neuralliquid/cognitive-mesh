@@ -223,6 +223,44 @@ variable "frontend_custom_domain" {
   default     = null
 }
 
+# ---------- Public DNS ----------
+
+variable "enable_public_dns_records" {
+  description = "Whether to manage the public NeuralLiquid DNS records for Cognitive Mesh."
+  type        = bool
+  default     = false
+}
+
+variable "public_dns_zone_name" {
+  description = "Azure DNS zone name that hosts the public Cognitive Mesh records."
+  type        = string
+  default     = "neuralliquid.ai"
+}
+
+variable "public_dns_zone_resource_group_name" {
+  description = "Resource group containing the public DNS zone."
+  type        = string
+  default     = "mys-global-shared-rg"
+}
+
+variable "public_dns_api_target_hostname" {
+  description = "CNAME target hostname for the public API DNS record."
+  type        = string
+  default     = "cognitive-mesh-api-prod.azurewebsites.net"
+}
+
+variable "public_dns_frontend_target_hostname" {
+  description = "CNAME target hostname for the public frontend DNS records."
+  type        = string
+  default     = "cognitive-mesh-frontend-prod.azurewebsites.net"
+}
+
+variable "public_dns_app_service_verification_id" {
+  description = "App Service custom-domain verification ID used in asuid TXT records."
+  type        = string
+  default     = ""
+}
+
 # ---------- Container Web Apps ----------
 
 variable "shared_acr_name" {
@@ -309,6 +347,12 @@ variable "api_docket_scope" {
   default     = ""
 }
 
+variable "api_docket_api_key_secret_uri" {
+  description = "Key Vault secret URI for the Docket API key. The App Service receives this as a Key Vault reference, not a raw secret value."
+  type        = string
+  default     = ""
+}
+
 variable "frontend_mystira_auth_client_id" {
   description = "Public Entra application client ID used by the frontend for Mystira identity login."
   type        = string
@@ -317,6 +361,30 @@ variable "frontend_mystira_auth_client_id" {
 
 variable "frontend_mystira_tenant_id" {
   description = "Mystira Entra tenant ID used by the frontend for identity login."
+  type        = string
+  default     = ""
+}
+
+variable "frontend_show_preview_nav" {
+  description = "Whether the frontend exposes preview navigation links."
+  type        = bool
+  default     = false
+}
+
+variable "frontend_mystira_identity_base_url" {
+  description = "Mystira identity service base URL used by the frontend server-side auth routes."
+  type        = string
+  default     = "https://identity.mystira.app"
+}
+
+variable "frontend_mystira_oidc_client_id" {
+  description = "Mystira OIDC client ID used by the frontend server-side auth routes."
+  type        = string
+  default     = "neuralliquid-cognitive-mesh-web"
+}
+
+variable "frontend_mystira_oidc_client_secret_secret_uri" {
+  description = "Key Vault secret URI for the Mystira OIDC client secret. The App Service receives this as a Key Vault reference, not a raw secret value."
   type        = string
   default     = ""
 }

@@ -202,8 +202,37 @@ These checks verify status surfaces, not full live Sluice model execution or can
 
 ## Remaining After Transfer
 
-1. Review whether `mareeben` should be restored from write to admin on the transferred repository.
-2. Reconcile frontend App Service Terraform drift before any full prod Terraform apply.
-3. Move NeuralLiquid-owned DNS/deployment state into NeuralLiquid-owned infrastructure before long-term production.
-4. Baton FinOps and Runway Analyst: verify Docket-backed cost-attribution readiness from the Sluice-routed CogMesh usage path before using the transfer as funding evidence.
-5. Baton Evidence and Claims Auditor: validate that public migration/funding claims distinguish implemented Sluice/Docket routing from remaining hardening tasks.
+1. Baton Evidence and Claims Auditor: validate that public migration/funding claims distinguish implemented Sluice/Docket routing from remaining hardening tasks.
+
+## Post-Transfer Hardening - 2026-07-14
+
+- Restored `mareeben` to `admin` on `neuralliquid/cognitive-mesh`; visible collaborators now show `JustAGhosT` admin and `mareeben` admin.
+- Reconciled prod App Service Terraform drift before full apply:
+  - Pinned API and frontend container images to the post-transfer deployed tag `sha-5e0567a`.
+  - Added Terraform-managed frontend server-side Mystira identity settings and preview navigation setting.
+  - Added Key Vault reference variables for future Docket and Mystira OIDC secret ownership.
+  - Preserved currently live `DOCKET_API_KEY` and `MYSTIRA_OIDC_CLIENT_SECRET` app settings with `ignore_changes` until those secrets are moved to Key Vault references.
+- Ran `terragrunt validate --working-dir infra/environments/prod`: succeeded.
+- Ran `terragrunt apply -auto-approve --working-dir infra/environments/prod` after a zero-destroy plan: `0 added, 3 changed, 0 destroyed`.
+- Ran post-apply health checks:
+  - API prod `/healthz`: `{"status":"ok"}`
+  - API staging `/healthz`: `{"status":"ok"}`
+  - Frontend prod `/api/health`: `{"status":"healthy"}`
+  - Frontend staging `/api/health`: `{"status":"healthy"}`
+- Ran post-apply `terragrunt plan -no-color --working-dir infra/environments/prod`: no changes.
+- Renamed root Terragrunt config from `infra/terragrunt.hcl` to `infra/root.hcl` and updated environment includes to `find_in_parent_folders("root.hcl")`; prod validation no longer emits the Terragrunt root-file anti-pattern warning.
+- Moved long-term Cognitive Mesh public DNS records into NeuralLiquid-owned Terraform state:
+  - Added Terraform resources for CNAME records `cognitive-mesh`, `control.cognitive-mesh`, and `api.cognitivemesh` in the `neuralliquid.ai` Azure DNS zone.
+  - Added Terraform resources for App Service verification TXT records `asuid.cognitive-mesh`, `asuid.control.cognitive-mesh`, and `asuid.api.cognitivemesh`.
+  - Imported all six existing DNS record sets into prod state using Azure DNS resource IDs under `mys-global-shared-rg`.
+- Verified DNS/custom-domain state after import:
+  - `cognitive-mesh.neuralliquid.ai` and `control.cognitive-mesh.neuralliquid.ai` CNAME to `cognitive-mesh-frontend-prod.azurewebsites.net`.
+  - `api.cognitivemesh.neuralliquid.ai` CNAMEs to `cognitive-mesh-api-prod.azurewebsites.net`.
+  - API and frontend custom hostnames are `SniEnabled`.
+  - `https://api.cognitivemesh.neuralliquid.ai/api/v1/sluice/health`, `https://cognitive-mesh.neuralliquid.ai/api/health`, and `https://control.cognitive-mesh.neuralliquid.ai/api/health` returned healthy/configured responses.
+- Ran final prod `terragrunt plan -no-color --working-dir infra/environments/prod`: no changes.
+- Verified Docket-backed attribution path with a synthetic smoke event:
+  - CogMesh accepted `POST https://api.cognitivemesh.neuralliquid.ai/api/v1/docket/usage` for correlation `codex-docket-smoke-20260714233933`.
+  - Docket Container App logs for `pvc-shared-costops-api` revision `pvc-shared-costops-api--0000018` showed `POST /usage/model-events HTTP/1.1` returned `200 OK` at `2026-07-14T21:40:05Z`.
+  - Docket health returned `{"status":"ok","backend":"table"}`.
+- Evidence caveat: this verifies the CogMesh-to-Docket ingestion path and a tiny synthetic cost event. Use it as technical readiness evidence, not as production funding evidence for real usage volume until actual Sluice-routed workload costs are accumulated and reviewed.
