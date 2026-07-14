@@ -6,9 +6,9 @@ Scope: `phoenixvc/cognitive-mesh` to `neuralliquid/cognitive-mesh`.
 
 ## Current Status
 
-Status: Batch 2 partial / blocked.
+Status: Batch 2 closeout / repository transfer still not performed.
 
-Reason: Batch 2 migration artifacts exist and were refreshed on 2026-07-13, but the repository transfer remains blocked by model-egress and dependency-readiness work. PR #512 and PR #513 are merged into `dev`; the clean transfer baseline now builds and tests at commit `92aa06bffcfc981eea5cf981e0245ed8180c9bf5`. CogMesh should route model calls through Sluice and should not configure Docket production usage attribution until CogMesh-to-Docket auth and ingestion semantics are implemented against the canonical Docket endpoint.
+Reason: Batch 2 migration artifacts and routing prep are merged into `dev`, and production now has Docket plus Sluice routing settings applied. Repository transfer remains undone and should be routed through the Baton Migration Coordinator for org/OIDC/secrets/DNS work, the Baton Evidence and Claims Auditor for Docket ingestion evidence, and the Baton FinOps and Runway Analyst for cost-attribution readiness. Preserve the transfer block until those prerequisites are verified.
 
 ## Evidence Reviewed
 
@@ -108,3 +108,41 @@ These checks verify status surfaces, not full live Sluice model execution or can
 3. Configure CogMesh `DOCKET_BASE_URL` and service auth after Docket is deployed.
 4. Confirm CogMesh-to-Sluice production auth.
 5. Run full Terraform validation and prod plan after frontend App Service drift is reconciled.
+
+## Refresh - 2026-07-14
+
+- Fetched `origin` and confirmed local `dev` at `eac1d23`, matching `origin/dev`.
+- Confirmed open CogMesh PR list contains only Renovate PR #494 (`renovate/pin-dependencies`), unrelated to the migration transfer path.
+- Confirmed Docket PR `phoenixvc/docket#99` is merged.
+- Confirmed recent Docket production deploy run `29308313859` completed successfully.
+- Confirmed recent CogMesh API deploy run `29274844076` completed successfully for commit `b588922`.
+- Confirmed CogMesh repo variables include `COGMESH_DOCKET_BASE_URL`, `COGMESH_SLUICE_BASE_URL`, `COGMESH_SLUICE_MODEL`, and `COGMESH_SLUICE_MAX_TOKENS`.
+- Confirmed CogMesh repo secrets include `COGMESH_DOCKET_API_KEY` and `COGMESH_SLUICE_API_KEY`.
+- Applied Sluice settings to `cognitive-mesh-api-prod` and its `staging` slot:
+  - `SLUICE_BASE_URL=https://litellm.sluice.phoenixvc.tech`
+  - `SLUICE_MODEL=default`
+  - `SLUICE_MAX_TOKENS=16384`
+  - `SLUICE_API_KEY` now set through a Key Vault reference to the Sluice `gateway-key` secret.
+- Restarted the production API app and staging slot.
+- Verified both production and staging `/api/v1/sluice/health` return `status=configured`, `sluiceConfigured=true`, `directProviderFallbackAllowed=false`, `docketConfigured=true`, and `docketMode=external-auth-configured`.
+- Verified unauthenticated Sluice `/v1/models` returns HTTP 401, confirming gateway model routes require an API key.
+- Verified authenticated Sluice `/v1/models` returns HTTP 200 and the configured route list when called with the gateway key.
+- Verified `https://docket.phoenixvc.tech/health` returns HTTP 200 with `{"status":"ok","backend":"table"}`.
+- Verified `https://docket.phoenixvc.tech/openapi.json` returns the model usage ingestion routes `/usage/model-events` and `/api/v1/usage/model-events`.
+- Ran a production Docket usage-ingestion smoke through CogMesh:
+  - CogMesh `POST /api/v1/docket/usage` returned HTTP 202 for correlation `codex-smoke-20260714134919`.
+  - Docket production Container App logs show `POST /usage/model-events HTTP/1.1` returned HTTP 200 at `2026-07-14T11:49:50Z`.
+- Updated `.github/workflows/deploy.yml` to support `COGMESH_SLUICE_API_KEY` as a temporary direct-secret bridge in addition to the preferred `COGMESH_SLUICE_API_KEY_SECRET_URI` Key Vault path.
+- Set `COGMESH_SLUICE_API_KEY_SECRET_URI` to the Sluice Key Vault `gateway-key` secret URI.
+- Removed the temporary direct `COGMESH_SLUICE_API_KEY` GitHub secret after Key Vault wiring was in place.
+- Rotated the Sluice gateway key on 2026-07-14 after an app-setting value query exposed the previous value in local tool output.
+- Verified Azure config-reference status for production and staging `SLUICE_API_KEY` is `Resolved`.
+
+## Remaining Before Transfer
+
+1. Publish and merge the deploy-workflow durability patch that keeps the Sluice Key Vault URI path and optional direct-secret fallback.
+2. Baton Migration Coordinator: reconcile frontend App Service Terraform drift before any full prod apply.
+3. Baton Migration Coordinator: add `neuralliquid/cognitive-mesh` OIDC federated credential subjects or create a NeuralLiquid-owned deployment identity.
+4. Baton Migration Coordinator: recreate/validate repository variables, secrets, environments, app installations, and DNS/custom-domain ownership after transfer.
+5. Baton FinOps and Runway Analyst: verify Docket-backed cost-attribution readiness from the Sluice-routed CogMesh usage path before using the transfer as funding evidence.
+6. Baton Evidence and Claims Auditor: validate that public migration/funding claims distinguish implemented Sluice/Docket routing from remaining transfer prerequisites.
