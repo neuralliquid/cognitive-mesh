@@ -141,6 +141,8 @@ These checks verify status surfaces, not full live Sluice model execution or can
 ## Remaining Before Transfer
 
 1. Publish and merge the deploy-workflow durability patch that keeps the Sluice Key Vault URI path and optional direct-secret fallback.
-2. Reconcile frontend App Service Terraform drift before any full prod apply.
-3. Add `neuralliquid/cognitive-mesh` OIDC federated credential subjects or create a NeuralLiquid-owned deployment identity.
-4. Recreate/validate repository variables, secrets, environments, app installations, and DNS/custom-domain ownership after transfer.
+2. Baton Migration Coordinator: reconcile frontend App Service Terraform drift before any full prod apply.
+3. Baton Migration Coordinator: add `neuralliquid/cognitive-mesh` OIDC federated credential subjects or create a NeuralLiquid-owned deployment identity.
+4. Baton Migration Coordinator: recreate/validate repository variables, secrets, environments, app installations, and DNS/custom-domain ownership after transfer.
+5. Baton FinOps and Runway Analyst: verify Docket-backed cost-attribution readiness from the Sluice-routed CogMesh usage path before using the transfer as funding evidence.
+6. Baton Evidence and Claims Auditor: validate that public migration/funding claims distinguish implemented Sluice/Docket routing from remaining transfer prerequisites.
