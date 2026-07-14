@@ -4,19 +4,19 @@ Generated: 2026-07-13
 
 Scope: `phoenixvc/cognitive-mesh` to `neuralliquid/cognitive-mesh`.
 
-No repository transfer has been performed in this batch.
+No repository transfer has been performed yet.
 
 ## Current Rollback State
 
 - Repository still exists at `phoenixvc/cognitive-mesh`.
-- Latest fetched `origin/dev` checked on 2026-07-13 is `5b76bf34389b0a82dcc546c2eb09d0494cb09e1e`.
-- Batch 2 work has been split into clean PR branches from `origin/dev`: migration package PR #512 and Terraform routing PR #513.
+- Latest fetched `origin/dev` checked on 2026-07-14 is `792454d`.
+- Batch 2 work is merged into `dev`; it includes the migration package, routing Terraform, Docket forwarding/auth settings, Sluice secret bridge durability, and OIDC readiness documentation.
 - Production App Services remain in `nl-prod-cognitive-mesh-rg`.
-- Deployment identity `nl-cognitive-mesh-github-actions` currently has PhoenixVC repository federated subjects.
+- Deployment identity `nl-cognitive-mesh-github-actions` currently has PhoenixVC and NeuralLiquid repository federated subjects.
 - Shared ACR remains `myssharedacr.azurecr.io`.
 - CogMesh production infrastructure keeps `enable_openai = false`.
 - Sluice is an external PhoenixVC-hosted dependency.
-- Docket is blocked until the canonical renamed service is live.
+- Docket canonical endpoint is live at `https://docket.phoenixvc.tech`.
 
 ## If Pre-Transfer Changes Need Reversal
 

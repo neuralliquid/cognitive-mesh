@@ -324,12 +324,10 @@ references:
   archived_prototypes: []
 
 blockers:
-  - Batch 2 transfer remains partial until migration package PR #512 and companion Terraform routing PR #513 are reviewed and merged.
-  - Deployment workflows still need the local workflow/Terraform changes to be committed and pushed before GitHub Actions will use the new Web App deployment path.
-  - Old cognitivemesh.io DNS names do not resolve; replace with staging.cognitivemesh.neuralliquid.ai and cognitivemesh.neuralliquid.ai.
-  - After repository transfer, add equivalent federated credential subjects for neuralliquid/cognitive-mesh to nl-cognitive-mesh-github-actions or a NeuralLiquid-owned replacement app registration.
-  - GitHub Apps with selected repository access still need per-app repository selection confirmation before transfer; selected installations are visible, but expanding selected app repository lists through the API returned 403 and requires the broader GitHub OAuth `user` scope.
-  - Docket must be live under canonical `docket` service identity before CogMesh sets `DOCKET_BASE_URL`; do not use the old `pvc-shared-costops-api` endpoint as the long-term dependency.
+  - Batch 3 repository transfer has not been performed; neuralliquid/cognitive-mesh still returns GitHub HTTP 404 until transfer.
+  - Target-repository variables, secrets, environments, branch protections/rulesets, app installations, and Actions OIDC cannot be validated until after transfer.
+  - Frontend App Service Terraform drift must be reconciled or explicitly accepted before any full production Terraform apply.
+  - DNS/custom-domain ownership must be revalidated after transfer; keep Mystira workspace DNS as a temporary bridge only if it remains the current source of truth.
 
 resolved_blockers:
   - User confirmed the stale phoenix-flow ecosystem entry should be baton; manifest now classifies baton as the PhoenixVC-hosted project tracker dependency.
@@ -352,8 +350,13 @@ resolved_blockers:
   - The only visible OpenAI resource match is pvc-prod-sluice-aoai in pvc-prod-sluice-rg, supporting the README claim that model access should route through sluice rather than a Cognitive Mesh-owned AOAI resource.
   - GitHub App installation inventory is visible for phoenixvc. Relevant installed apps include Renovate, Stilla, Codecov, Cursor, ChatGPT Codex Connector, Claude, Vercel, Sentry, CodeRabbit, Greptile, Devin, and phoenixvc-actions-runner.
   - Selected app installation IDs were narrowed on 2026-07-13: Renovate `101140936`, Stilla `116485390`, Devin `68460896`, and phoenixvc-actions-runner `111911804`.
+  - Selected GitHub App repository coverage was cleared by PAT-backed installation repository queries: Renovate and Stilla include phoenixvc/cognitive-mesh, Devin is inactive for this transfer, and phoenixvc-actions-runner has zero repositories and is not deployed.
   - GitHub package inventory is visible; no phoenixvc Cognitive Mesh container packages were found.
   - Organization Actions secrets and variables are visible; org variables are empty and org secrets do not contain the ACR/AKS/Slack names required by Cognitive Mesh deployment workflows.
+  - Batch 2 migration package, routing Terraform, Docket usage forwarding, Docket auth settings, Sluice secret bridge durability, and OIDC readiness documentation are merged through dev commit 792454d.
+  - Production and staging CogMesh Sluice health report configured, direct provider fallback disabled, and Docket external auth configured.
+  - Production and staging App Service Key Vault references for SLUICE_API_KEY report Resolved.
+  - Docket health returns 200 with table backend, and CogMesh-to-Docket usage ingestion has been production-smoked through the canonical Docket endpoint.
 
 validation:
   local_searches:
@@ -375,7 +378,7 @@ validation:
     - orgs/phoenixvc/actions/variables
     - orgs/phoenixvc/installations
     - orgs/phoenixvc/packages?package_type=container
-    - /user/installations/{installation_id}/repositories for selected apps (still blocked on 2026-07-13; GitHub returned 403 and requested OAuth user scope)
+    - /user/installations/{installation_id}/repositories for selected apps (403 with the default gh OAuth token; later cleared with PAT-backed installation repository queries)
   azure_queries:
     - az account show
     - az resource list for Cognitive Mesh and mesh names

@@ -86,8 +86,7 @@ Action: preserve history; add current-location notes only where needed.
 
 ## Unknown Or Blocked References
 
-- Selected-repository GitHub App access for Renovate, Stilla, Devin and phoenixvc-actions-runner still needs manual/API confirmation. Installation IDs are known, but `/user/installations/{installation_id}/repositories` returned 403 and requires OAuth `user` scope.
-- Docket canonical production endpoint and CogMesh-to-Docket auth scheme are not confirmed.
-- CogMesh-to-Sluice production auth scheme is not confirmed.
-- Batch 2 edits are now split into clean PR branches: migration package PR #512 and Terraform routing PR #513.
-- Direct model-provider secrets should remain quarantined until all model egress is verified through Sluice.
+- Batch 3 target repository settings cannot be validated until `phoenixvc/cognitive-mesh` is transferred and `neuralliquid/cognitive-mesh` exists.
+- Target repository variables, secrets, environments, branch protections/rulesets, selected app installations, and Actions OIDC must be recreated or validated after transfer.
+- Frontend App Service Terraform drift must be reconciled or explicitly accepted before any full production Terraform apply.
+- Direct model-provider secrets should remain quarantined; production model egress is routed through Sluice, with direct provider fallback disabled.

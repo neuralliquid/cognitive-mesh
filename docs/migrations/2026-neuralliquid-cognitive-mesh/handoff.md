@@ -146,22 +146,24 @@ Delivered:
 
 Current production behavior:
 
-- Sluice reports `configuration_missing` until `SLUICE_BASE_URL` is set.
-- Azure metadata confirms the Sluice LiteLLM gateway custom domain is `https://litellm.sluice.phoenixvc.tech`; CogMesh prod Terraform now has non-secret hooks for `SLUICE_BASE_URL` and a Key Vault reference for `SLUICE_API_KEY`, but leaves them unset until auth is confirmed.
-- Docket reports `in-memory` until `DOCKET_BASE_URL` is set.
-- Docket canonical API URL is now live at `https://docket.phoenixvc.tech`.
-- Do not set `DOCKET_BASE_URL` until CogMesh-to-Docket auth and the production ingestion contract are implemented. The canonical Docket API has auth enabled and exposes bearer-secured cost/action endpoints, but it does not currently expose a CogMesh-compatible model-usage ingestion endpoint.
+- Sluice reports `configured` in production and staging when checked through CogMesh.
+- Azure metadata confirms the Sluice LiteLLM gateway custom domain is `https://litellm.sluice.phoenixvc.tech`; CogMesh production and staging App Service settings now use `SLUICE_BASE_URL` plus a resolved Key Vault reference for `SLUICE_API_KEY`.
+- Docket reports `external-auth-configured` through CogMesh.
+- Docket canonical API URL is live at `https://docket.phoenixvc.tech`.
+- CogMesh-to-Docket usage ingestion is configured through `DOCKET_BASE_URL=https://docket.phoenixvc.tech` and `DOCKET_API_KEY`; the production smoke returned HTTP 202 through CogMesh and Docket logs showed HTTP 200 at `/usage/model-events`.
 - The Sluice health endpoint does not perform a live model call; it reports configuration/routing readiness and `liveProbeAttempted=false`.
 
 ## Closeout Refresh - 2026-07-14
 
-- Batch 2 source work is merged through `dev` commit `eac1d23`:
+- Batch 2 source work is merged through `dev` commit `792454d`:
   - PR #512 migration package.
   - PR #513 routing Terraform settings.
   - PR #517 CogMesh Docket outbound usage forwarding.
   - PR #519 Docket usage auth settings.
   - PR #520 Docket API key deploy bridge.
   - PR #521/#523 agent-ops/schema cleanup and untracked artifact cleanup.
+  - PR #524 Sluice gateway secret bridge durability.
+  - PR #525 NeuralLiquid OIDC readiness record.
 - Docket PR `phoenixvc/docket#99` is merged and Docket production deploy run `29308313859` completed successfully.
 - CogMesh API deploy run `29274844076` completed successfully for the Docket API key bridge.
 - GitHub repo variables now include:
@@ -183,7 +185,7 @@ Current production behavior:
   - `directProviderFallbackAllowed=false`
   - `docketConfigured=true`
   - `docketMode=external-auth-configured`
-- `https://cognitive-mesh-api-prod-staging.azurewebsites.net/api/v1/sluice/health` previously reported the same configured state before the Key Vault rotation; after rotation, its Key Vault reference is resolved, but the final HTTP health retry should be repeated if the slot is needed for transfer validation.
+- `https://cognitive-mesh-api-prod-staging.azurewebsites.net/api/v1/sluice/health` was rechecked after the Key Vault rotation and reports the same configured state.
 - Authenticated Sluice gateway check succeeded:
   - `GET https://litellm.sluice.phoenixvc.tech/v1/models` returned HTTP 200 with the configured model routes when called with the gateway key.
 - Docket health check succeeded:
@@ -201,6 +203,22 @@ Current production behavior:
 - `neuralliquid/cognitive-mesh` does not currently exist, so target-repo variables, secrets, environments, app installations, and DNS/custom-domain ownership must be validated after the actual GitHub repository transfer.
 - Durability note: Terraform full apply still needs review because existing App Service drift can affect frontend settings and image tags, but Sluice secret wiring now uses the preferred Key Vault reference path.
 
+Batch 2 closeout status:
+
+- Complete for migration prep, routing, auth wiring, and production smoke evidence.
+- Not a repository transfer. The target repo still returns GitHub HTTP 404 until Batch 3 performs the transfer.
+- Remaining before any full prod Terraform apply: reconcile frontend App Service drift.
+
+Batch 3 pre-transfer discovery:
+
+- Baton task: `3b3a125b-6db5-4d80-8fb2-422d20f9c9f0`.
+- Source repo metadata: public, default branch `dev`, issues/projects/wiki enabled, merge/squash/rebase enabled, delete-branch-on-merge disabled.
+- Source repo has one disabled repository ruleset, `Main Branch Protection` (`13093301`), targeting the default branch.
+- Source repo environments returned by GitHub: `copilot` and `production`; production has no protection rules.
+- Source repo webhooks list is empty; GitHub Pages endpoint returns 404.
+- Visible source collaborators: `mareeben` admin and `JustAGhosT` admin.
+- Target org `neuralliquid` is visible; target repo `neuralliquid/cognitive-mesh` still returns HTTP 404.
+
 ## Transfer Baseline Refresh - 2026-07-13
 
 - PR #512 and PR #513 are merged into `dev`.
@@ -211,22 +229,24 @@ Current production behavior:
 - `pnpm run lint` exited 0 with 53 existing warnings.
 - `pnpm run test -- --runInBand` succeeded with 18 suites and 137 tests passed; existing React `act(...)` console warning observed.
 - `pnpm run build` succeeded; existing Style Dictionary and Next config/deprecation warnings remain.
-- `gh auth status` now includes `admin:org`, `read:packages`, `repo`, and `user`, but all four selected GitHub App repository-coverage API calls still return HTTP 403 because GitHub requires a PAT, GitHub App-authorized token, or basic auth for that endpoint.
+- At the time of this baseline, `gh auth status` included `admin:org`, `read:packages`, `repo`, and `user`, but the default GitHub OAuth token could not expand selected GitHub App repository coverage. This was later superseded by PAT-backed installation repository queries that cleared the active app-coverage gate.
 - Classic PAT verification cleared the active GitHub App coverage gate:
   - Renovate (`101140936`) includes `phoenixvc/cognitive-mesh`.
   - Stilla (`116485390`) includes `phoenixvc/cognitive-mesh`.
   - Devin (`68460896`) does not include `phoenixvc/cognitive-mesh`, accepted because Devin is inactive for this transfer.
   - phoenixvc-actions-runner (`111911804`) has zero repositories, accepted because the runner app is not currently deployed.
 
-## Org Migration Tasks After Sluice Routing
+## Batch 3 Org Migration Tasks
 
-1. Decide final target org/repo names and update GitHub Actions OIDC federated credentials.
-2. Recreate or transfer repo variables/secrets without exposing values.
-3. Decide DNS ownership timing:
+1. Confirm final source state and obtain explicit approval for the irreversible GitHub repository transfer.
+2. Transfer `phoenixvc/cognitive-mesh` to `neuralliquid/cognitive-mesh`.
+3. Recreate or validate target repo variables/secrets without exposing values.
+4. Validate target repo environments, branch protections/rulesets, selected app installations, and Actions OIDC.
+5. Decide DNS ownership timing:
    - Keep `mystira-workspace` DNS as a temporary bridge if it currently owns the zones.
    - Move NeuralLiquid-owned DNS/deployment state into NeuralLiquid-owned infra before long-term production.
-4. Bind custom domains and certificates for the chosen `*.cognitivemesh.neuralliquid.ai` hosts.
-5. Run final frontend/API deploys from the target org after OIDC and secrets are confirmed.
+6. Bind or validate custom domains and certificates for the chosen `*.cognitivemesh.neuralliquid.ai` hosts.
+7. Run final frontend/API deploys from the target org after OIDC and secrets are confirmed.
 
 ## Handoff - 2026-07-13 Sluice/Docket Migration Prep
 
@@ -248,8 +268,8 @@ work_completed:
       - staging.cognitivemesh.neuralliquid.ai CORS origin
   - Verified the intended prod Sluice base URL but left it gated on a managed API key reference:
       - https://litellm.sluice.phoenixvc.tech
-  - Left DOCKET_BASE_URL empty because the canonical Docket endpoint is live but not approved for CogMesh until auth and usage-ingestion semantics are confirmed.
-  - Updated manifest and this handoff with the Docket blocker.
+  - Left the Docket base URL unset at the time because the canonical Docket endpoint was not yet approved for CogMesh until auth and usage-ingestion semantics were confirmed. Superseded on 2026-07-14: Docket usage ingestion is now configured and production-smoked.
+  - Updated manifest and this handoff with the then-current Docket blocker.
   - Configured canonical Docket API hostname:
       - docket.phoenixvc.tech CNAME -> pvc-shared-costops-api.ashymushroom-1f7d8121.southafricanorth.azurecontainerapps.io
       - asuid.docket.phoenixvc.tech TXT -> Container App custom-domain verification ID
@@ -288,7 +308,7 @@ verification:
 blockers:
   - CogMesh-to-Docket service auth is identifiable but not wired; Docket supports Azure AD bearer tokens and optional X-API-Key, but CogMesh does not currently send either to Docket.
   - CogMesh-to-Docket production ingestion contract is not compatible yet; canonical Docket does not expose a model-usage ingestion endpoint matching CogMesh's local DocketUsageEvent.
-  - CogMesh-to-Sluice auth scheme still needs production confirmation.
+  - CogMesh-to-Sluice auth scheme still needed production confirmation at the time. Superseded on 2026-07-14: Sluice auth is configured through a resolved Key Vault reference and gateway auth was verified.
   - Full prod Terragrunt plan is not apply-safe yet because frontend App Service drift would remove existing frontend settings and move images back to Terraform-managed values.
 risks:
   - Applying the full prod plan without drift reconciliation could remove frontend app settings managed outside Terraform.

@@ -207,7 +207,7 @@ These names must be validated as repository, organization, or environment secret
   - `renovate`: `101140936`
   - `phoenixvc-actions-runner`: `111911804`
   - `stilla`: `116485390`
-- Attempting to expand selected app repository lists through `/user/installations/{installation_id}/repositories` still returned 403 on 2026-07-13 and requires the broader GitHub OAuth `user` scope, not only `read:user`.
+- Attempting to expand selected app repository lists through `/user/installations/{installation_id}/repositories` returned 403 on 2026-07-13 with the default GitHub OAuth token. This was later superseded by PAT-backed installation repository queries that cleared the active app-coverage gate.
 
 ## Pages
 
@@ -430,17 +430,19 @@ This rollback is incomplete until the blockers below are resolved.
 
 ## Blockers Before Transfer
 
-- Batch 2 artifacts and routing Terraform changes are isolated into clean PR branches and must be reviewed/merged before transfer: migration package PR #512 and Terraform routing PR #513.
-- Deployment workflows still need any approved local workflow/Terraform changes to be committed and pushed before GitHub Actions will use the new Web App deployment path.
-- Old `cognitivemesh.io`, `staging.cognitivemesh.io`, and `api.cognitivemesh.io` do not resolve; replace with `*.cognitivemesh.neuralliquid.ai`.
-- After repository transfer, add equivalent federated credential subjects for `neuralliquid/cognitive-mesh` to `nl-cognitive-mesh-github-actions` or a NeuralLiquid-owned replacement app registration.
-- Selected-repository GitHub App coverage still needs confirmation for `cognitive-mesh`, especially Renovate, Stilla, Devin, and phoenixvc-actions-runner; API expansion returned 403 and requires OAuth `user` scope or manual org UI review.
+- Batch 3 repository transfer has not been performed; `neuralliquid/cognitive-mesh` currently returns GitHub HTTP 404.
+- Target repository variables, secrets, environments, branch protections/rulesets, selected app installations, and Actions OIDC must be recreated or validated after transfer.
+- Frontend App Service Terraform drift must be reconciled or explicitly accepted before any full production Terraform apply.
+- DNS/custom-domain ownership must be revalidated after transfer; use `*.cognitivemesh.neuralliquid.ai` hosts and keep any Mystira workspace DNS bridge only while it remains the current source of truth.
 
 ## Resolved Or Narrowed Blockers
 
 - `phoenix-flow` is resolved by user confirmation: use `baton` as the project tracker reference.
 - Active Azure account, tenant, and subscription were identified.
 - Shared ACR decision is resolved: use `myssharedacr` for the initial NeuralLiquid deployment.
+- Batch 2 migration package, routing Terraform, Docket usage forwarding, Docket auth settings, Sluice secret bridge durability, and OIDC readiness documentation are merged through `dev` commit `792454d`.
+- Selected GitHub App repository coverage was cleared by PAT-backed installation repository queries.
+- CogMesh-to-Sluice and CogMesh-to-Docket production routing/auth are configured and production-smoked.
 - Initial deployment shape is resolved: production only, with `staging` treated as a production slot and `prod` as production.
 - Domain direction is resolved for now: use `x.cognitivemesh.neuralliquid.ai`.
 - AKS is resolved out of scope for the initial deployment; `AKS_CLUSTER_NAME` and `AKS_RESOURCE_GROUP` are not required.
