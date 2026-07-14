@@ -4,8 +4,10 @@ Last updated: 2026-07-14
 
 ## Current State
 
-- Repository: `phoenixvc/cognitive-mesh`
+- Repository: `neuralliquid/cognitive-mesh`
 - Branch: `dev`
+- Transfer completed: 2026-07-14
+- Previous repository path: `phoenixvc/cognitive-mesh` redirects to `neuralliquid/cognitive-mesh`
 - Latest deployed/frontend merge commit verified this session: `5b76bf34389b0a82dcc546c2eb09d0494cb09e1e`
 - Latest deployed API/frontend integration commit from Sluice/Docket work: `6e1e8fc991f73bee2e6a8fe017fa8b917cfaad87`
 - Prod Azure resource group: `nl-prod-cognitive-mesh-rg`
@@ -200,24 +202,38 @@ Current production behavior:
 - Source repo transfer settings snapshot:
   - Variables present on `phoenixvc/cognitive-mesh`: `AZURE_WEBAPP_RESOURCE_GROUP`, `COGMESH_DOCKET_BASE_URL`, `COGMESH_SLUICE_API_KEY_SECRET_URI`, `COGMESH_SLUICE_BASE_URL`, `COGMESH_SLUICE_MAX_TOKENS`, `COGMESH_SLUICE_MODEL`, `COGNITIVE_MESH_API_APP_NAME`, `COGNITIVE_MESH_FRONTEND_APP_NAME`, `NEXT_PUBLIC_MYSTIRA_AUTH_CLIENT_ID`, `NEXT_PUBLIC_MYSTIRA_TENANT_ID`.
   - Secrets present on `phoenixvc/cognitive-mesh`: `AZURE_CLIENT_ID`, `AZURE_SUBSCRIPTION_ID`, `AZURE_TENANT_ID`, `COGMESH_DOCKET_API_KEY`, `SONAR_HOST_URL`, `SONAR_TOKEN`.
-- `neuralliquid/cognitive-mesh` does not currently exist, so target-repo variables, secrets, environments, app installations, and DNS/custom-domain ownership must be validated after the actual GitHub repository transfer.
+- `neuralliquid/cognitive-mesh` now exists and is the canonical repository path. The previous `phoenixvc/cognitive-mesh` API path redirects to the transferred repository.
 - Durability note: Terraform full apply still needs review because existing App Service drift can affect frontend settings and image tags, but Sluice secret wiring now uses the preferred Key Vault reference path.
 
 Batch 2 closeout status:
 
 - Complete for migration prep, routing, auth wiring, and production smoke evidence.
-- Not a repository transfer. The target repo still returns GitHub HTTP 404 until Batch 3 performs the transfer.
+- Batch 2 itself was not a repository transfer. Batch 3 performed the transfer on 2026-07-14.
 - Remaining before any full prod Terraform apply: reconcile frontend App Service drift.
 
-Batch 3 pre-transfer discovery:
+Batch 3 transfer and target-org validation:
 
 - Baton task: `3b3a125b-6db5-4d80-8fb2-422d20f9c9f0`.
-- Source repo metadata: public, default branch `dev`, issues/projects/wiki enabled, merge/squash/rebase enabled, delete-branch-on-merge disabled.
-- Source repo has one disabled repository ruleset, `Main Branch Protection` (`13093301`), targeting the default branch.
-- Source repo environments returned by GitHub: `copilot` and `production`; production has no protection rules.
-- Source repo webhooks list is empty; GitHub Pages endpoint returns 404.
-- Visible source collaborators: `mareeben` admin and `JustAGhosT` admin.
-- Target org `neuralliquid` is visible; target repo `neuralliquid/cognitive-mesh` still returns HTTP 404.
+- Transfer API call completed successfully; both `phoenixvc/cognitive-mesh` and `neuralliquid/cognitive-mesh` now resolve to `neuralliquid/cognitive-mesh`.
+- Local `origin` was updated to `https://github.com/neuralliquid/cognitive-mesh.git`.
+- Target repo remains public, default branch `dev`, issues/projects/wiki enabled, merge/squash/rebase enabled, delete-branch-on-merge disabled.
+- Target repo variables and secrets are present by name; no secret values were read.
+- Target repo environments returned by GitHub: `copilot` and `production`; production has no protection rules.
+- Target repo has one disabled repository ruleset, `Main Branch Protection` (`13093301`), targeting the default branch.
+- Target repo webhooks list is empty; GitHub Pages endpoint returns 404.
+- Visible target collaborators: `JustAGhosT` admin and `mareeben` write. Before transfer, `mareeben` appeared as admin; this permission change should be reviewed if admin access is still required.
+- Actions are enabled and workflows are active.
+- OIDC app registration `nl-cognitive-mesh-github-actions` has NeuralLiquid federated subjects for `dev`, `main`, and `production`.
+- Target-org deploy runs completed successfully:
+  - API deploy run `29350528046`, image `myssharedacr.azurecr.io/cognitive-mesh-api:sha-5e0567a`.
+  - Frontend deploy run `29350528139`, image `myssharedacr.azurecr.io/cognitive-mesh-frontend:sha-5e0567a`.
+- Post-transfer health checks succeeded:
+  - `https://cognitive-mesh-api-prod.azurewebsites.net/healthz`
+  - `https://cognitive-mesh-api-prod-staging.azurewebsites.net/healthz`
+  - `https://cognitive-mesh-frontend-prod.azurewebsites.net/api/health`
+  - `https://cognitive-mesh-frontend-prod-staging.azurewebsites.net/api/health`
+  - `https://api.cognitivemesh.neuralliquid.ai/api/v1/sluice/health`
+  - `https://docket.phoenixvc.tech/health`
 
 ## Transfer Baseline Refresh - 2026-07-13
 
@@ -238,15 +254,13 @@ Batch 3 pre-transfer discovery:
 
 ## Batch 3 Org Migration Tasks
 
-1. Confirm final source state and obtain explicit approval for the irreversible GitHub repository transfer.
-2. Transfer `phoenixvc/cognitive-mesh` to `neuralliquid/cognitive-mesh`.
-3. Recreate or validate target repo variables/secrets without exposing values.
-4. Validate target repo environments, branch protections/rulesets, selected app installations, and Actions OIDC.
-5. Decide DNS ownership timing:
+1. Review whether `mareeben` should be restored from write to admin on the transferred repository.
+2. Reconcile frontend App Service Terraform drift before any full prod Terraform apply.
+3. Decide DNS ownership timing:
    - Keep `mystira-workspace` DNS as a temporary bridge if it currently owns the zones.
    - Move NeuralLiquid-owned DNS/deployment state into NeuralLiquid-owned infra before long-term production.
-6. Bind or validate custom domains and certificates for the chosen `*.cognitivemesh.neuralliquid.ai` hosts.
-7. Run final frontend/API deploys from the target org after OIDC and secrets are confirmed.
+4. Move NeuralLiquid-owned DNS/deployment state into NeuralLiquid-owned infra before long-term production.
+5. Verify Docket-backed cost-attribution evidence before using the migration as funding evidence.
 
 ## Handoff - 2026-07-13 Sluice/Docket Migration Prep
 
@@ -314,7 +328,7 @@ risks:
   - Applying the full prod plan without drift reconciliation could remove frontend app settings managed outside Terraform.
   - The canonical Docket hostname currently fronts the existing pvc-shared-costops-api Container App; Docket repo naming and Terraform resource names still need follow-up cleanup.
 rollback_state:
-  - No repository transfer performed.
+  - No repository transfer had been performed in that earlier Batch 1/2 prep step. Superseded on 2026-07-14: Batch 3 transferred the repository to `neuralliquid/cognitive-mesh`.
   - No Terraform apply performed.
   - Docket hostname rollback is to repoint docket.phoenixvc.tech CNAME away from the Container App and remove the Container App hostname binding.
   - Cognitive Mesh changes remain local documentation and Terraform configuration only.

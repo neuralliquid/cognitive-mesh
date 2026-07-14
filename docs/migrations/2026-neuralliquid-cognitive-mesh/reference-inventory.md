@@ -86,7 +86,7 @@ Action: preserve history; add current-location notes only where needed.
 
 ## Unknown Or Blocked References
 
-- Batch 3 target repository settings cannot be validated until `phoenixvc/cognitive-mesh` is transferred and `neuralliquid/cognitive-mesh` exists.
-- Target repository variables, secrets, environments, branch protections/rulesets, selected app installations, and Actions OIDC must be recreated or validated after transfer.
+- Batch 3 target repository settings were validated after `phoenixvc/cognitive-mesh` was transferred to `neuralliquid/cognitive-mesh`.
+- Target repository variables, secrets, environments, branch protections/rulesets, selected app installations, and Actions OIDC were validated without reading secret values.
 - Frontend App Service Terraform drift must be reconciled or explicitly accepted before any full production Terraform apply.
 - Direct model-provider secrets should remain quarantined; production model egress is routed through Sluice, with direct provider fallback disabled.

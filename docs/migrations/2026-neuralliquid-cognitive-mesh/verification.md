@@ -6,9 +6,9 @@ Scope: `phoenixvc/cognitive-mesh` to `neuralliquid/cognitive-mesh`.
 
 ## Current Status
 
-Status: Batch 2 closeout complete for migration prep and Sluice/Docket routing; Batch 3 repository transfer not yet performed.
+Status: Batch 2 closeout complete; Batch 3 repository transfer completed and target-org deploys verified.
 
-Reason: Batch 2 migration artifacts, routing prep, deploy-workflow durability, Docket usage forwarding, Docket auth settings, and Sluice Key Vault reference wiring are merged into `dev`. Production and staging now report Sluice configured, direct provider fallback disabled, and Docket external auth configured. Repository transfer remains undone and is now the Batch 3 track through the Baton Migration Coordinator for org/OIDC/secrets/DNS work. Preserve the transfer block until the operator explicitly approves the irreversible GitHub transfer step.
+Reason: Batch 2 migration artifacts, routing prep, deploy-workflow durability, Docket usage forwarding, Docket auth settings, and Sluice Key Vault reference wiring are merged into `dev`. Production and staging report Sluice configured, direct provider fallback disabled, and Docket external auth configured. Batch 3 transferred the repository to `neuralliquid/cognitive-mesh`, validated target repository settings by name, confirmed NeuralLiquid OIDC subjects, and ran API/frontend deploys from the target org.
 
 ## Evidence Reviewed
 
@@ -100,15 +100,14 @@ These checks verify status surfaces, not full live Sluice model execution or can
 - CogMesh-to-Docket code-level contract was implemented and production-smoked on 2026-07-14.
 - CogMesh-to-Sluice production auth was confirmed with the gateway key and is now wired through a Key Vault reference.
 - Selected GitHub App repository coverage was cleared by PAT-backed installation repository queries.
-- The remaining transfer gate is operational, not Batch 2 implementation: do not perform the irreversible GitHub repository transfer until explicitly approved for Batch 3 execution.
+- The remaining transfer gate was operational, not Batch 2 implementation. It was cleared when the operator approved Batch 3 execution on 2026-07-14.
 
 ## Next Verification Action
 
-1. Reconcile or explicitly accept frontend App Service Terraform drift before any full prod apply.
-2. Confirm final source repository state immediately before transfer.
-3. Perform the GitHub repository transfer to `neuralliquid/cognitive-mesh` only after explicit operator approval.
-4. Recreate/validate target repository variables, secrets, environments, app installations, branch protections/rulesets, and Actions OIDC.
-5. Run final deploys from the target org after target repository settings are validated.
+1. Review whether `mareeben` should be restored from write to admin on the transferred repository.
+2. Reconcile or explicitly accept frontend App Service Terraform drift before any full prod apply.
+3. Move NeuralLiquid-owned DNS/deployment state into NeuralLiquid-owned infrastructure before long-term production.
+4. Verify Docket-backed cost-attribution readiness from the Sluice-routed CogMesh usage path before using the transfer as funding evidence.
 
 ## Refresh - 2026-07-14
 
@@ -143,7 +142,7 @@ These checks verify status surfaces, not full live Sluice model execution or can
   - `repo:neuralliquid/cognitive-mesh:ref:refs/heads/main`
   - `repo:neuralliquid/cognitive-mesh:environment:production`
 - Verified both PhoenixVC and NeuralLiquid federated subjects are present on the deployment identity.
-- Verified `neuralliquid/cognitive-mesh` currently returns GitHub HTTP 404, so target-repository settings cannot be validated until the repository is transferred.
+- Historical pre-transfer check: `neuralliquid/cognitive-mesh` returned GitHub HTTP 404 before the repository transfer.
 - Captured current source repository variable and secret names for transfer validation; no secret values were recorded.
 
 ## Batch 2 Closeout Refresh - 2026-07-14
@@ -156,7 +155,7 @@ These checks verify status surfaces, not full live Sluice model execution or can
 - Confirmed production and staging `/api/v1/sluice/health` return `status=configured`, `sluiceConfigured=true`, `directProviderFallbackAllowed=false`, `docketConfigured=true`, and `docketMode=external-auth-configured`.
 - Confirmed production and staging App Service Key Vault references for `SLUICE_API_KEY` report `Resolved` through ARM config-reference reads.
 - Confirmed `https://docket.phoenixvc.tech/health` returns `{"status":"ok","backend":"table"}`.
-- Confirmed `neuralliquid/cognitive-mesh` still returns GitHub HTTP 404. Target-repo settings remain unvalidated because the repository has not been transferred.
+- Historical pre-transfer check: `neuralliquid/cognitive-mesh` still returned GitHub HTTP 404 before the repository transfer.
 
 ## Batch 3 Pre-Transfer Discovery - 2026-07-14
 
@@ -169,12 +168,42 @@ These checks verify status surfaces, not full live Sluice model execution or can
 - Source repository topics: `agent-orchestration`, `azure-openai`, `compliance`, `governance`, `observability`, `rbac`, `agent`, `ai`, `csharp`, `dotnet`, `reasoning`, `typescript`, `active`, `phoenixvc`, `neuralliquid`.
 - Source repository collaborators visible through GitHub: `mareeben` admin and `JustAGhosT` admin.
 - GitHub Pages endpoint returns 404, so no active Pages site was visible through the repository Pages API.
-- Target organization `neuralliquid` is visible; target repository `neuralliquid/cognitive-mesh` still returns GitHub HTTP 404.
+- Historical pre-transfer check: target organization `neuralliquid` was visible; target repository `neuralliquid/cognitive-mesh` still returned GitHub HTTP 404 before transfer.
 
-## Remaining Before Transfer
+## Batch 3 Transfer And Target Validation - 2026-07-14
 
-1. Baton Migration Coordinator: reconcile frontend App Service Terraform drift before any full prod apply.
-2. Baton Migration Coordinator: perform the actual GitHub repository transfer to `neuralliquid/cognitive-mesh` once explicitly approved.
-3. Baton Migration Coordinator: recreate/validate repository variables, secrets, environments, app installations, branch protections/rulesets, and DNS/custom-domain ownership after transfer.
+- Operator approved continuing Batch 3 with "lets go".
+- Transferred `phoenixvc/cognitive-mesh` to `neuralliquid/cognitive-mesh` through GitHub's repository transfer API.
+- Verified both old and new repository API paths resolve to `neuralliquid/cognitive-mesh`.
+- Updated local `origin` to `https://github.com/neuralliquid/cognitive-mesh.git`.
+- Verified target repository variables by name: `AZURE_WEBAPP_RESOURCE_GROUP`, `COGMESH_DOCKET_BASE_URL`, `COGMESH_SLUICE_API_KEY_SECRET_URI`, `COGMESH_SLUICE_BASE_URL`, `COGMESH_SLUICE_MAX_TOKENS`, `COGMESH_SLUICE_MODEL`, `COGNITIVE_MESH_API_APP_NAME`, `COGNITIVE_MESH_FRONTEND_APP_NAME`, `NEXT_PUBLIC_MYSTIRA_AUTH_CLIENT_ID`, and `NEXT_PUBLIC_MYSTIRA_TENANT_ID`.
+- Verified target repository secrets by name only: `AZURE_CLIENT_ID`, `AZURE_SUBSCRIPTION_ID`, `AZURE_TENANT_ID`, `COGMESH_DOCKET_API_KEY`, `SONAR_HOST_URL`, and `SONAR_TOKEN`.
+- Verified target repository environments: `copilot` and `production`; production has no protection rules or deployment branch policy.
+- Verified target repository ruleset `Main Branch Protection` (`13093301`) exists and remains disabled.
+- Verified target repository hooks list is empty, Pages endpoint returns 404, Actions are enabled, and workflows are active.
+- Verified visible target collaborators: `JustAGhosT` admin and `mareeben` write. Before transfer, `mareeben` appeared as admin; review whether this should be restored.
+- Verified OIDC app registration `nl-cognitive-mesh-github-actions` includes NeuralLiquid subjects:
+  - `repo:neuralliquid/cognitive-mesh:ref:refs/heads/dev`
+  - `repo:neuralliquid/cognitive-mesh:ref:refs/heads/main`
+  - `repo:neuralliquid/cognitive-mesh:environment:production`
+- Triggered and watched target-org deploy runs:
+  - API deploy run `29350528046`: succeeded.
+  - Frontend deploy run `29350528139`: succeeded.
+- Verified deployed App Service images through ARM:
+  - `DOCKER|myssharedacr.azurecr.io/cognitive-mesh-api:sha-5e0567a`
+  - `DOCKER|myssharedacr.azurecr.io/cognitive-mesh-frontend:sha-5e0567a`
+- Verified post-transfer health:
+  - API prod `/healthz`: `{"status":"ok"}`
+  - API staging `/healthz`: `{"status":"ok"}`
+  - Frontend prod `/api/health`: `{"status":"healthy"}`
+  - Frontend staging `/api/health`: `{"status":"healthy"}`
+  - Sluice health reports `status=configured`, `sluiceConfigured=true`, `directProviderFallbackAllowed=false`, `docketConfigured=true`, and `docketMode=external-auth-configured`.
+  - Docket health returns `{"status":"ok","backend":"table"}`.
+
+## Remaining After Transfer
+
+1. Review whether `mareeben` should be restored from write to admin on the transferred repository.
+2. Reconcile frontend App Service Terraform drift before any full prod Terraform apply.
+3. Move NeuralLiquid-owned DNS/deployment state into NeuralLiquid-owned infrastructure before long-term production.
 4. Baton FinOps and Runway Analyst: verify Docket-backed cost-attribution readiness from the Sluice-routed CogMesh usage path before using the transfer as funding evidence.
-5. Baton Evidence and Claims Auditor: validate that public migration/funding claims distinguish implemented Sluice/Docket routing from remaining transfer prerequisites.
+5. Baton Evidence and Claims Auditor: validate that public migration/funding claims distinguish implemented Sluice/Docket routing from remaining hardening tasks.
