@@ -4,12 +4,12 @@ Generated: 2026-07-13
 
 Scope: `phoenixvc/cognitive-mesh` to `neuralliquid/cognitive-mesh`.
 
-No repository transfer has been performed yet.
+Repository transfer was performed on 2026-07-14.
 
 ## Current Rollback State
 
-- Repository still exists at `phoenixvc/cognitive-mesh`.
-- Latest fetched `origin/dev` checked on 2026-07-14 is `792454d`.
+- Repository now exists at `neuralliquid/cognitive-mesh`; the old `phoenixvc/cognitive-mesh` path redirects to the transferred repository.
+- Latest fetched `origin/dev` checked on 2026-07-14 is `5e0567a`.
 - Batch 2 work is merged into `dev`; it includes the migration package, routing Terraform, Docket forwarding/auth settings, Sluice secret bridge durability, and OIDC readiness documentation.
 - Production App Services remain in `nl-prod-cognitive-mesh-rg`.
 - Deployment identity `nl-cognitive-mesh-github-actions` currently has PhoenixVC and NeuralLiquid repository federated subjects.
@@ -17,12 +17,13 @@ No repository transfer has been performed yet.
 - CogMesh production infrastructure keeps `enable_openai = false`.
 - Sluice is an external PhoenixVC-hosted dependency.
 - Docket canonical endpoint is live at `https://docket.phoenixvc.tech`.
+- Target-org API and frontend deploys succeeded from `neuralliquid/cognitive-mesh` and deployed `sha-5e0567a` images.
 
-## If Pre-Transfer Changes Need Reversal
+## If Post-Transfer Changes Need Reversal
 
 1. Stop any in-flight deploy workflows for Cognitive Mesh.
-2. Revert only the affected migration-prep commits or PRs.
-3. If changes are still local-only, discard or move only the Batch 2 migration/Terraform edits after confirming they are not user-owned work.
+2. Revert only the affected migration-prep commits or PRs from `neuralliquid/cognitive-mesh`.
+3. If changes are still local-only, discard or move only the migration documentation edits after confirming they are not user-owned work.
 4. Re-run Terraform validation and a prod plan before applying any infrastructure rollback.
 5. Confirm API and frontend health on the existing App Services.
 6. Update `handoff.md`, `verification.md` and Baton with the rollback evidence.

@@ -1,5 +1,7 @@
 source_repository: phoenixvc/cognitive-mesh
 target_repository: neuralliquid/cognitive-mesh
+current_repository: neuralliquid/cognitive-mesh
+transferred_at: 2026-07-14
 generated_at: 2026-07-12
 generated_from:
   local_checkout: C:/tmp/cognitive-mesh
@@ -324,10 +326,9 @@ references:
   archived_prototypes: []
 
 blockers:
-  - Batch 3 repository transfer has not been performed; neuralliquid/cognitive-mesh still returns GitHub HTTP 404 until transfer.
-  - Target-repository variables, secrets, environments, branch protections/rulesets, app installations, and Actions OIDC cannot be validated until after transfer.
+  - Review whether `mareeben` should be restored from write to admin on the transferred repository.
   - Frontend App Service Terraform drift must be reconciled or explicitly accepted before any full production Terraform apply.
-  - DNS/custom-domain ownership must be revalidated after transfer; keep Mystira workspace DNS as a temporary bridge only if it remains the current source of truth.
+  - DNS/custom-domain ownership must be moved into NeuralLiquid-owned infrastructure before long-term production; keep Mystira workspace DNS as a temporary bridge only if it remains the current source of truth.
 
 resolved_blockers:
   - User confirmed the stale phoenix-flow ecosystem entry should be baton; manifest now classifies baton as the PhoenixVC-hosted project tracker dependency.
@@ -357,6 +358,9 @@ resolved_blockers:
   - Production and staging CogMesh Sluice health report configured, direct provider fallback disabled, and Docket external auth configured.
   - Production and staging App Service Key Vault references for SLUICE_API_KEY report Resolved.
   - Docket health returns 200 with table backend, and CogMesh-to-Docket usage ingestion has been production-smoked through the canonical Docket endpoint.
+  - Repository transfer completed on 2026-07-14; old phoenixvc/cognitive-mesh API path redirects to neuralliquid/cognitive-mesh.
+  - Target repository variables, secrets, environments, ruleset, Actions enablement, active workflows, OIDC federated credentials, and no-webhook/no-Pages state were validated after transfer without reading secret values.
+  - API and frontend deploys ran successfully from neuralliquid/cognitive-mesh on dev and deployed sha-5e0567a images to production and staging.
 
 validation:
   local_searches:

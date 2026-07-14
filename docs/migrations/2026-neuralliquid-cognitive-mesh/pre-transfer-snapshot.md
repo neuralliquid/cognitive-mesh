@@ -430,8 +430,8 @@ This rollback is incomplete until the blockers below are resolved.
 
 ## Blockers Before Transfer
 
-- Batch 3 repository transfer has not been performed; `neuralliquid/cognitive-mesh` currently returns GitHub HTTP 404.
-- Target repository variables, secrets, environments, branch protections/rulesets, selected app installations, and Actions OIDC must be recreated or validated after transfer.
+- Batch 3 repository transfer was performed on 2026-07-14; `neuralliquid/cognitive-mesh` now exists.
+- Target repository variables, secrets, environments, branch protections/rulesets, selected app installations, and Actions OIDC were validated after transfer without reading secret values.
 - Frontend App Service Terraform drift must be reconciled or explicitly accepted before any full production Terraform apply.
 - DNS/custom-domain ownership must be revalidated after transfer; use `*.cognitivemesh.neuralliquid.ai` hosts and keep any Mystira workspace DNS bridge only while it remains the current source of truth.
 
@@ -476,4 +476,4 @@ This rollback is incomplete until the blockers below are resolved.
 - Queried Azure account, resources, ACR, AKS, AOAI, and candidate app registration federated credentials.
 - Checked DNS resolution for the workflow public URLs.
 - Searched local files for active owner, workflow, deployment, package, and Azure references.
-- Created documentation and local workflow/Terraform changes. No repository transfer, archive, production app apply, deployment workflow run, package publication, or runtime app change was performed.
+- Historical Batch 1/2 note: created documentation and local workflow/Terraform changes without repository transfer, archive, production app apply, deployment workflow run, package publication, or runtime app change. Superseded on 2026-07-14 by Batch 3 transfer plus target-org deploy runs.
