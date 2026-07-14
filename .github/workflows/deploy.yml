@@ -7,6 +7,7 @@
 #   AZURE_CLIENT_ID
 #   AZURE_TENANT_ID
 #   AZURE_SUBSCRIPTION_ID
+#   COGMESH_SLUICE_API_KEY (temporary bridge until a Key Vault reference is used)
 #
 # Required repository or organization variables:
 #   AZURE_WEBAPP_RESOURCE_GROUP
@@ -132,6 +133,7 @@ jobs:
           COGMESH_SLUICE_BASE_URL: ${{ vars.COGMESH_SLUICE_BASE_URL }}
           COGMESH_SLUICE_MODEL: ${{ vars.COGMESH_SLUICE_MODEL || 'default' }}
           COGMESH_SLUICE_MAX_TOKENS: ${{ vars.COGMESH_SLUICE_MAX_TOKENS || '16384' }}
+          COGMESH_SLUICE_API_KEY: ${{ secrets.COGMESH_SLUICE_API_KEY }}
           COGMESH_SLUICE_API_KEY_SECRET_URI: ${{ vars.COGMESH_SLUICE_API_KEY_SECRET_URI }}
         run: |
           az webapp config container set \
@@ -173,6 +175,8 @@ jobs:
           fi
           if [ -n "${COGMESH_SLUICE_API_KEY_SECRET_URI}" ]; then
             app_settings+=(SLUICE_API_KEY="@Microsoft.KeyVault(SecretUri=${COGMESH_SLUICE_API_KEY_SECRET_URI})")
+          elif [ -n "${COGMESH_SLUICE_API_KEY}" ]; then
+            app_settings+=(SLUICE_API_KEY="${COGMESH_SLUICE_API_KEY}")
           fi
           az webapp config appsettings set \
             --resource-group "${{ vars.AZURE_WEBAPP_RESOURCE_GROUP }}" \
@@ -185,6 +189,13 @@ jobs:
               --name "${{ vars.COGNITIVE_MESH_API_APP_NAME }}" \
               --slot staging \
               --setting-names DOCKET_API_KEY || true
+          fi
+          if [ -z "${COGMESH_SLUICE_API_KEY_SECRET_URI}" ] && [ -z "${COGMESH_SLUICE_API_KEY}" ]; then
+            az webapp config appsettings delete \
+              --resource-group "${{ vars.AZURE_WEBAPP_RESOURCE_GROUP }}" \
+              --name "${{ vars.COGNITIVE_MESH_API_APP_NAME }}" \
+              --slot staging \
+              --setting-names SLUICE_API_KEY || true
           fi
 
       - name: Restart staging slot
@@ -234,6 +245,7 @@ jobs:
           COGMESH_SLUICE_BASE_URL: ${{ vars.COGMESH_SLUICE_BASE_URL }}
           COGMESH_SLUICE_MODEL: ${{ vars.COGMESH_SLUICE_MODEL || 'default' }}
           COGMESH_SLUICE_MAX_TOKENS: ${{ vars.COGMESH_SLUICE_MAX_TOKENS || '16384' }}
+          COGMESH_SLUICE_API_KEY: ${{ secrets.COGMESH_SLUICE_API_KEY }}
           COGMESH_SLUICE_API_KEY_SECRET_URI: ${{ vars.COGMESH_SLUICE_API_KEY_SECRET_URI }}
         run: |
           az webapp config container set \
@@ -274,6 +286,8 @@ jobs:
           fi
           if [ -n "${COGMESH_SLUICE_API_KEY_SECRET_URI}" ]; then
             app_settings+=(SLUICE_API_KEY="@Microsoft.KeyVault(SecretUri=${COGMESH_SLUICE_API_KEY_SECRET_URI})")
+          elif [ -n "${COGMESH_SLUICE_API_KEY}" ]; then
+            app_settings+=(SLUICE_API_KEY="${COGMESH_SLUICE_API_KEY}")
           fi
           az webapp config appsettings set \
             --resource-group "${{ vars.AZURE_WEBAPP_RESOURCE_GROUP }}" \
@@ -284,6 +298,12 @@ jobs:
               --resource-group "${{ vars.AZURE_WEBAPP_RESOURCE_GROUP }}" \
               --name "${{ vars.COGNITIVE_MESH_API_APP_NAME }}" \
               --setting-names DOCKET_API_KEY || true
+          fi
+          if [ -z "${COGMESH_SLUICE_API_KEY_SECRET_URI}" ] && [ -z "${COGMESH_SLUICE_API_KEY}" ]; then
+            az webapp config appsettings delete \
+              --resource-group "${{ vars.AZURE_WEBAPP_RESOURCE_GROUP }}" \
+              --name "${{ vars.COGNITIVE_MESH_API_APP_NAME }}" \
+              --setting-names SLUICE_API_KEY || true
           fi
 
       - name: Restart production

@@ -6,9 +6,9 @@ Scope: `phoenixvc/cognitive-mesh` to `neuralliquid/cognitive-mesh`.
 
 ## Current Status
 
-Status: Batch 2 partial / blocked.
+Status: Batch 2 closeout / repository transfer still not performed.
 
-Reason: Batch 2 migration artifacts exist and were refreshed on 2026-07-13, but the repository transfer remains blocked by model-egress and dependency-readiness work. PR #512 and PR #513 are merged into `dev`; the clean transfer baseline now builds and tests at commit `92aa06bffcfc981eea5cf981e0245ed8180c9bf5`. CogMesh should route model calls through Sluice and should not configure Docket production usage attribution until CogMesh-to-Docket auth and ingestion semantics are implemented against the canonical Docket endpoint.
+Reason: Batch 2 migration artifacts and routing prep are merged into `dev`, and production now has Docket plus Sluice routing settings applied. Repository transfer remains undone and should wait for the final org/OIDC/secrets/DNS checklist plus one Docket ingestion readback smoke if the canonical Docket API continues to show intermittent connectivity.
 
 ## Evidence Reviewed
 
@@ -108,3 +108,33 @@ These checks verify status surfaces, not full live Sluice model execution or can
 3. Configure CogMesh `DOCKET_BASE_URL` and service auth after Docket is deployed.
 4. Confirm CogMesh-to-Sluice production auth.
 5. Run full Terraform validation and prod plan after frontend App Service drift is reconciled.
+
+## Refresh - 2026-07-14
+
+- Fetched `origin` and confirmed local `dev` at `eac1d23`, matching `origin/dev`.
+- Confirmed open CogMesh PR list contains only Renovate PR #494 (`renovate/pin-dependencies`), unrelated to the migration transfer path.
+- Confirmed Docket PR `phoenixvc/docket#99` is merged.
+- Confirmed recent Docket production deploy run `29308313859` completed successfully.
+- Confirmed recent CogMesh API deploy run `29274844076` completed successfully for commit `b588922`.
+- Confirmed CogMesh repo variables include `COGMESH_DOCKET_BASE_URL`, `COGMESH_SLUICE_BASE_URL`, `COGMESH_SLUICE_MODEL`, and `COGMESH_SLUICE_MAX_TOKENS`.
+- Confirmed CogMesh repo secrets include `COGMESH_DOCKET_API_KEY` and `COGMESH_SLUICE_API_KEY`.
+- Applied Sluice settings to `cognitive-mesh-api-prod` and its `staging` slot:
+  - `SLUICE_BASE_URL=https://litellm.sluice.phoenixvc.tech`
+  - `SLUICE_MODEL=default`
+  - `SLUICE_MAX_TOKENS=16384`
+  - `SLUICE_API_KEY` set from the existing Sluice Container App `gateway-key` secret without printing the value.
+- Restarted the production API app and staging slot.
+- Verified both production and staging `/api/v1/sluice/health` return `status=configured`, `sluiceConfigured=true`, `directProviderFallbackAllowed=false`, `docketConfigured=true`, and `docketMode=external-auth-configured`.
+- Verified unauthenticated Sluice `/v1/models` returns HTTP 401, confirming gateway model routes require an API key.
+- Verified authenticated Sluice `/v1/models` returns HTTP 200 and the configured route list when called with the gateway key.
+- Verified `https://docket.phoenixvc.tech/health` returns HTTP 200 with `{"status":"ok","backend":"table"}`.
+- Observed an intermittent CLI connection failure while fetching `https://docket.phoenixvc.tech/openapi.json`; keep a final Docket ingestion/readback smoke on the transfer checklist.
+- Updated `.github/workflows/deploy.yml` to support `COGMESH_SLUICE_API_KEY` as a temporary direct-secret bridge in addition to the preferred `COGMESH_SLUICE_API_KEY_SECRET_URI` Key Vault path.
+
+## Remaining Before Transfer
+
+1. Publish and merge the deploy-workflow durability patch that adds the `COGMESH_SLUICE_API_KEY` bridge.
+2. Preferably move the Sluice gateway key into Key Vault and set `COGMESH_SLUICE_API_KEY_SECRET_URI`; until then, avoid full Terraform apply unless the plan is reviewed for app-setting drift.
+3. Run one final Docket usage-ingestion smoke with readback or log evidence when `docket.phoenixvc.tech` is stable.
+4. Add `neuralliquid/cognitive-mesh` OIDC federated credential subjects or create a NeuralLiquid-owned deployment identity.
+5. Recreate/validate repository variables, secrets, environments, app installations, and DNS/custom-domain ownership after transfer.

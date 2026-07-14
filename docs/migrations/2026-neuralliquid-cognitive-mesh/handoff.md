@@ -1,6 +1,6 @@
 # Cognitive Mesh NeuralLiquid Handoff
 
-Last updated: 2026-07-13
+Last updated: 2026-07-14
 
 ## Current State
 
@@ -152,6 +152,41 @@ Current production behavior:
 - Docket canonical API URL is now live at `https://docket.phoenixvc.tech`.
 - Do not set `DOCKET_BASE_URL` until CogMesh-to-Docket auth and the production ingestion contract are implemented. The canonical Docket API has auth enabled and exposes bearer-secured cost/action endpoints, but it does not currently expose a CogMesh-compatible model-usage ingestion endpoint.
 - The Sluice health endpoint does not perform a live model call; it reports configuration/routing readiness and `liveProbeAttempted=false`.
+
+## Closeout Refresh - 2026-07-14
+
+- Batch 2 source work is merged through `dev` commit `eac1d23`:
+  - PR #512 migration package.
+  - PR #513 routing Terraform settings.
+  - PR #517 CogMesh Docket outbound usage forwarding.
+  - PR #519 Docket usage auth settings.
+  - PR #520 Docket API key deploy bridge.
+  - PR #521/#523 agent-ops/schema cleanup and untracked artifact cleanup.
+- Docket PR `phoenixvc/docket#99` is merged and Docket production deploy run `29308313859` completed successfully.
+- CogMesh API deploy run `29274844076` completed successfully for the Docket API key bridge.
+- GitHub repo variables now include:
+  - `COGMESH_DOCKET_BASE_URL=https://docket.phoenixvc.tech`
+  - `COGMESH_SLUICE_BASE_URL=https://litellm.sluice.phoenixvc.tech`
+  - `COGMESH_SLUICE_MODEL=default`
+  - `COGMESH_SLUICE_MAX_TOKENS=16384`
+- GitHub repo secrets now include:
+  - `COGMESH_DOCKET_API_KEY`
+  - `COGMESH_SLUICE_API_KEY`
+- CogMesh production and staging API App Service settings now include `DOCKET_BASE_URL`, `DOCKET_API_KEY`, `SLUICE_BASE_URL`, `SLUICE_API_KEY`, `SLUICE_MODEL`, `SLUICE_MAX_TOKENS`, and `ALLOW_DIRECT_MODEL_PROVIDER=false`.
+- Both production and staging API apps were restarted after Sluice settings were applied.
+- `https://api.cognitivemesh.neuralliquid.ai/api/v1/sluice/health` now reports:
+  - `status=configured`
+  - `sluiceConfigured=true`
+  - `directProviderFallbackAllowed=false`
+  - `docketConfigured=true`
+  - `docketMode=external-auth-configured`
+- `https://cognitive-mesh-api-prod-staging.azurewebsites.net/api/v1/sluice/health` reports the same configured state.
+- Authenticated Sluice gateway check succeeded:
+  - `GET https://litellm.sluice.phoenixvc.tech/v1/models` returned HTTP 200 with the configured model routes when called with the gateway key.
+- Docket health check succeeded:
+  - `GET https://docket.phoenixvc.tech/health` returned HTTP 200 with `{"status":"ok","backend":"table"}`.
+- Docket OpenAPI fetch was intermittently unreachable from the CLI after a successful health check; keep one final Docket ingestion/readback smoke in the transfer checklist if the Docket API is flapping.
+- Durability note: Terraform supports Sluice API keys through `COGMESH_SLUICE_API_KEY_SECRET_URI` / Key Vault references. The current production bridge uses a GitHub Actions secret plus direct App Service app setting; move this to Key Vault before treating Terraform full apply as safe.
 
 ## Transfer Baseline Refresh - 2026-07-13
 
