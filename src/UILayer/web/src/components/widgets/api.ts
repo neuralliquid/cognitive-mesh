@@ -40,28 +40,169 @@ import type {
   ReflexionStatusResponse,
   ValueDiagnosticResponse,
   OrgBlindnessDetectionResponse,
+  AdoptionTelemetry,
   PsychologicalSafetyScore,
   ImpactReport,
   ResistanceIndicator,
   SandwichProcess,
   PhaseAuditEntry,
   CognitiveDebtAssessment,
+  DiscoverChampionsResponse,
+  CommunityPulseResponse,
+  LearningCatalystRequest,
+  LearningCatalystResponse,
+  InnovationSpreadResult,
+  ModelRoutingSummary,
 } from './types';
 
+type ApiObject = Record<string, unknown>;
+
+function asObject(value: unknown): ApiObject {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as ApiObject : {};
+}
+
+function readValue(source: ApiObject, camelKey: string, pascalKey: string): unknown {
+  return source[camelKey] ?? source[pascalKey];
+}
+
+function readString(source: ApiObject, camelKey: string, pascalKey: string, fallback = ''): string {
+  const value = readValue(source, camelKey, pascalKey);
+  return typeof value === 'string' ? value : fallback;
+}
+
+function readNumber(source: ApiObject, camelKey: string, pascalKey: string, fallback = 0): number {
+  const value = readValue(source, camelKey, pascalKey);
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
+function readNullableNumber(source: ApiObject, camelKey: string, pascalKey: string): number | null {
+  const value = readValue(source, camelKey, pascalKey);
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function readBoolean(source: ApiObject, camelKey: string, pascalKey: string): boolean {
+  const value = readValue(source, camelKey, pascalKey);
+  return typeof value === 'boolean' ? value : false;
+}
+
+function readArray(source: ApiObject, camelKey: string, pascalKey: string): unknown[] {
+  const value = readValue(source, camelKey, pascalKey);
+  return Array.isArray(value) ? value : [];
+}
+
+function readDateString(source: ApiObject, camelKey: string, pascalKey: string): string {
+  const value = readValue(source, camelKey, pascalKey);
+  if (typeof value !== 'string') return new Date().toISOString();
+
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? new Date().toISOString() : value;
+}
+
+function normalizeNistScoreResponse(raw: unknown): NISTScoreResponse {
+  const source = asObject(raw);
+  return {
+    organizationId: readString(source, 'organizationId', 'OrganizationId'),
+    overallScore: readNumber(source, 'overallScore', 'OverallScore'),
+    pillarScores: readArray(source, 'pillarScores', 'PillarScores').map((item) => {
+      const pillar = asObject(item);
+      return {
+        pillarId: readString(pillar, 'pillarId', 'PillarId'),
+        pillarName: readString(pillar, 'pillarName', 'PillarName', 'Unlabeled pillar'),
+        averageScore: readNumber(pillar, 'averageScore', 'AverageScore'),
+        statementCount: readNumber(pillar, 'statementCount', 'StatementCount'),
+      };
+    }),
+    assessedAt: readDateString(source, 'assessedAt', 'AssessedAt'),
+  };
+}
+
+function normalizeNistRoadmapResponse(raw: unknown): NISTRoadmapResponse {
+  const source = asObject(raw);
+  return {
+    organizationId: readString(source, 'organizationId', 'OrganizationId'),
+    gaps: readArray(source, 'gaps', 'Gaps').map((item) => {
+      const gap = asObject(item);
+      return {
+        statementId: readString(gap, 'statementId', 'StatementId'),
+        currentScore: readNumber(gap, 'currentScore', 'CurrentScore'),
+        targetScore: readNumber(gap, 'targetScore', 'TargetScore'),
+        priority: readString(gap, 'priority', 'Priority', 'Unknown'),
+        recommendedActions: readArray(gap, 'recommendedActions', 'RecommendedActions')
+          .filter((action): action is string => typeof action === 'string'),
+      };
+    }),
+    generatedAt: readDateString(source, 'generatedAt', 'GeneratedAt'),
+  };
+}
+
+function normalizeNistChecklistResponse(raw: unknown): NISTChecklistResponse {
+  const source = asObject(raw);
+  return {
+    organizationId: readString(source, 'organizationId', 'OrganizationId'),
+    pillars: readArray(source, 'pillars', 'Pillars').map((item) => {
+      const pillar = asObject(item);
+      return {
+        pillarId: readString(pillar, 'pillarId', 'PillarId'),
+        pillarName: readString(pillar, 'pillarName', 'PillarName', 'Unlabeled pillar'),
+        statements: readArray(pillar, 'statements', 'Statements').map((statementItem) => {
+          const statement = asObject(statementItem);
+          return {
+            statementId: readString(statement, 'statementId', 'StatementId'),
+            description: readString(statement, 'description', 'Description'),
+            isComplete: readBoolean(statement, 'isComplete', 'IsComplete'),
+            evidenceCount: readNumber(statement, 'evidenceCount', 'EvidenceCount'),
+            currentScore: readNullableNumber(statement, 'currentScore', 'CurrentScore'),
+          };
+        }),
+      };
+    }),
+    totalStatements: readNumber(source, 'totalStatements', 'TotalStatements'),
+    completedStatements: readNumber(source, 'completedStatements', 'CompletedStatements'),
+  };
+}
+
+function normalizeNistAuditLogResponse(raw: unknown): NISTAuditLogResponse {
+  const source = asObject(raw);
+  return {
+    organizationId: readString(source, 'organizationId', 'OrganizationId'),
+    entries: readArray(source, 'entries', 'Entries').map((item) => {
+      const entry = asObject(item);
+      return {
+        entryId: readString(entry, 'entryId', 'EntryId'),
+        action: readString(entry, 'action', 'Action', 'UnknownAction'),
+        performedBy: readString(entry, 'performedBy', 'PerformedBy', 'Unknown'),
+        performedAt: readDateString(entry, 'performedAt', 'PerformedAt'),
+        details: readString(entry, 'details', 'Details'),
+      };
+    }),
+    totalCount: readNumber(source, 'totalCount', 'TotalCount'),
+  };
+}
+
+const liveReadOptions: RequestInit = { cache: 'no-store' };
+
 export async function getNistScore(organizationId: string): Promise<NISTScoreResponse> {
-  return fetchJson(`/api/v1/nist-compliance/organizations/${encodeURIComponent(organizationId)}/score`);
+  const raw = await fetchJson<unknown>(`/api/v1/nist-compliance/organizations/${encodeURIComponent(organizationId)}/score`, liveReadOptions);
+  return normalizeNistScoreResponse(raw);
 }
 
 export async function getNistRoadmap(organizationId: string): Promise<NISTRoadmapResponse> {
-  return fetchJson(`/api/v1/nist-compliance/organizations/${encodeURIComponent(organizationId)}/roadmap`);
+  const raw = await fetchJson<unknown>(`/api/v1/nist-compliance/organizations/${encodeURIComponent(organizationId)}/roadmap`, liveReadOptions);
+  return normalizeNistRoadmapResponse(raw);
 }
 
 export async function getNistChecklist(organizationId: string): Promise<NISTChecklistResponse> {
-  return fetchJson(`/api/v1/nist-compliance/organizations/${encodeURIComponent(organizationId)}/checklist`);
+  const raw = await fetchJson<unknown>(`/api/v1/nist-compliance/organizations/${encodeURIComponent(organizationId)}/checklist`, liveReadOptions);
+  return normalizeNistChecklistResponse(raw);
 }
 
 export async function getNistAuditLog(organizationId: string, maxResults = 50): Promise<NISTAuditLogResponse> {
-  return fetchJson(`/api/v1/nist-compliance/organizations/${encodeURIComponent(organizationId)}/audit-log?maxResults=${maxResults}`);
+  const params = new URLSearchParams({ maxResults: Math.max(1, maxResults).toString() });
+  const raw = await fetchJson<unknown>(
+    `/api/v1/nist-compliance/organizations/${encodeURIComponent(organizationId)}/audit-log?${params.toString()}`,
+    liveReadOptions,
+  );
+  return normalizeNistAuditLogResponse(raw);
 }
 
 // ──────────────────────────── Adaptive Balance ──────────────────────────────
@@ -130,6 +271,10 @@ export async function getResistancePatterns(tenantId: string): Promise<Resistanc
   return fetchJson(`/api/v1/impact-metrics/telemetry/${encodeURIComponent(tenantId)}/resistance`);
 }
 
+export async function getImpactUsageSummary(tenantId: string): Promise<AdoptionTelemetry[]> {
+  return fetchJson(`/api/v1/impact-metrics/telemetry/${encodeURIComponent(tenantId)}/summary`);
+}
+
 // ────────────────────────── Cognitive Sandwich ──────────────────────────────
 
 export async function getSandwichProcess(processId: string): Promise<SandwichProcess> {
@@ -142,4 +287,50 @@ export async function getSandwichAuditTrail(processId: string): Promise<PhaseAud
 
 export async function getSandwichDebt(processId: string): Promise<CognitiveDebtAssessment> {
   return fetchJson(`/api/v1/cognitive-sandwich/${encodeURIComponent(processId)}/debt`);
+}
+
+// ─────────────────────────────── Convener ──────────────────────────────────
+
+export async function discoverConvenerChampions(
+  skill = '',
+  maxResults = 5,
+): Promise<DiscoverChampionsResponse> {
+  const params = new URLSearchParams({ maxResults: String(maxResults) });
+  if (skill.trim()) params.set('skill', skill.trim());
+  return fetchJson(`/api/v1/convener/discover/champions?${params.toString()}`);
+}
+
+export async function getConvenerCommunityPulse(
+  channelId: string,
+  timeframeInDays = 30,
+): Promise<CommunityPulseResponse> {
+  const params = new URLSearchParams({
+    channelId,
+    timeframeInDays: String(timeframeInDays),
+  });
+  return fetchJson(`/api/v1/convener/pulse/community?${params.toString()}`);
+}
+
+export async function getConvenerLearningRecommendations(
+  request: LearningCatalystRequest = {},
+): Promise<LearningCatalystResponse> {
+  return fetchJson('/api/v1/convener/learning/catalysts/recommend', {
+    method: 'POST',
+    body: JSON.stringify({
+      focusAreas: request.focusAreas ?? [],
+      maxRecommendations: request.maxRecommendations ?? 5,
+    }),
+  });
+}
+
+export async function getConvenerInnovationSpread(
+  ideaId: string,
+): Promise<InnovationSpreadResult> {
+  return fetchJson(`/api/v1/convener/innovation/spread/${encodeURIComponent(ideaId)}`);
+}
+
+// ───────────────────────── Model Routing & Docket ──────────────────────────
+
+export async function getModelRoutingSummary(): Promise<ModelRoutingSummary> {
+  return fetchJson('/api/v1/model-routing/summary', liveReadOptions);
 }

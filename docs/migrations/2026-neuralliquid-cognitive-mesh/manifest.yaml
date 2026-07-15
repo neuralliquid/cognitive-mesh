@@ -1,0 +1,408 @@
+source_repository: phoenixvc/cognitive-mesh
+target_repository: neuralliquid/cognitive-mesh
+current_repository: neuralliquid/cognitive-mesh
+transferred_at: 2026-07-14
+generated_at: 2026-07-12
+generated_from:
+  local_checkout: C:/tmp/cognitive-mesh
+  default_branch: dev
+  origin_dev_sha_checked_at_2026_07_13: 5b76bf34389b0a82dcc546c2eb09d0494cb09e1e
+  local_branch: agent/adaptive-balance-control-widget
+  local_head_sha: 5ba6d9d0e96611baed977cf9c439cb58a5a4d708
+  task_scope: "Batch 2 reference inventory and rollback package plus Sluice/Docket routing prep; no repository transfer, archive, Terraform apply, production app apply, or deployment workflow run."
+  followup_checked_at: 2026-07-13
+
+decisions:
+  preserve_internal_namespaces: true
+  preserve_cognitive_mesh_brand: true
+  deployment_strategy: new_neuralliquid_deployments_only
+  terraform_remote_state:
+    resource_group_name: nl-cognitive-mesh-tfstate-rg
+    storage_account_name: nlcognitivemeshtfstate
+    container_name: tfstate
+    status: bootstrapped
+  container_registry_strategy: use_shared_acr
+  target_container_registry: myssharedacr.azurecr.io
+  deploy_prod_only_initially: true
+  use_aks_initially: false
+  production_slots:
+    - staging
+    - prod
+  initial_domains:
+    - staging.cognitivemesh.neuralliquid.ai
+    - cognitivemesh.neuralliquid.ai
+  eliminate_or_disable_expensive_nonessential_resources: true
+  dns_source_of_truth_decision: "Use Mystira workspace Terraform only as a temporary bridge if it currently owns neuralliquid.ai DNS; move NeuralLiquid-owned DNS/deployment state to NeuralLiquid-owned infrastructure before long-term production."
+  transfer_retort: false
+  transfer_sluice: false
+  transfer_docket: false
+  transfer_baton: false
+  transfer_deck: false
+  transfer_org_meta: false
+  transfer_mcp_org: false
+
+references:
+  repository_urls:
+    - value: https://github.com/phoenixvc/cognitive-mesh
+      source: GitHub repository metadata
+      classification: active reference
+      action: replace after transfer and validate redirect
+    - value: https://github.com/phoenixvc/cognitive-mesh.git
+      source: GitHub clone_url metadata
+      classification: active reference
+      action: replace clone instructions and automation remotes after transfer
+    - value: https://github.com/phoenixvc
+      source: repository owner metadata
+      classification: current ownership statement
+      action: rewrite owner metadata during repository transfer
+
+  workflow_references:
+    - value: .github/workflows/deploy.yml
+      source: local file scan
+      classification: active reference
+      action: deploy API image to shared ACR and Azure Web App production plus staging slot; no AKS
+      details:
+        workflow_name: Deploy
+        permissions:
+          id-token: write
+          contents: read
+          actions: read
+        image_name: cognitive-mesh-api
+        environments_referenced:
+          - staging
+          - production
+        deployment_urls:
+          - https://staging.cognitivemesh.neuralliquid.ai
+          - https://cognitivemesh.neuralliquid.ai
+        required_secret_names:
+          - AZURE_CLIENT_ID
+          - AZURE_TENANT_ID
+          - AZURE_SUBSCRIPTION_ID
+        required_variable_names:
+          - AZURE_WEBAPP_RESOURCE_GROUP
+          - COGNITIVE_MESH_API_APP_NAME
+        provenance_source: "${{ github.server_url }}/${{ github.repository }}"
+    - value: .github/workflows/deploy-frontend.yml
+      source: local file scan
+      classification: active reference
+      action: deploy frontend image to shared ACR and Azure Web App production plus staging slot; no AKS
+      details:
+        workflow_name: Deploy Frontend
+        permissions:
+          id-token: write
+          contents: read
+          actions: read
+        image_name: cognitive-mesh-frontend
+        environments_referenced:
+          - staging
+          - production
+        deployment_urls:
+          - https://staging.cognitivemesh.neuralliquid.ai
+          - https://cognitivemesh.neuralliquid.ai
+        required_secret_names:
+          - AZURE_CLIENT_ID
+          - AZURE_TENANT_ID
+          - AZURE_SUBSCRIPTION_ID
+        required_variable_names:
+          - AZURE_WEBAPP_RESOURCE_GROUP
+          - COGNITIVE_MESH_FRONTEND_APP_NAME
+        frontend_build_arg: NEXT_PUBLIC_API_BASE_URL=https://api.cognitivemesh.neuralliquid.ai
+        provenance_source: "${{ github.server_url }}/${{ github.repository }}"
+    - value: .github/workflows/api-docs.yml
+      source: local file scan
+      classification: active reference
+      action: validate issue, Pages, GitHub token, and notification behavior after transfer
+      details:
+        required_secret_names:
+          - GITHUB_TOKEN
+          - SLACK_WEBHOOK
+    - value: .github/workflows/coverage.yml
+      source: local file scan
+      classification: active reference
+      action: recreate or validate coverage secret after transfer
+      details:
+        required_secret_names:
+          - CODECOV_TOKEN
+    - value: .github/workflows/create-pr-review-issues.yml
+      source: local file scan
+      classification: active reference
+      action: validate issue creation permissions after transfer
+      details:
+        required_secret_names:
+          - GITHUB_TOKEN
+
+  cloud_identity_references:
+    - value: AZURE_CREDENTIALS
+      source: .github/workflows/deploy.yml and .github/workflows/deploy-frontend.yml
+      classification: retired reference
+      action: replaced with dedicated OIDC login secrets AZURE_CLIENT_ID, AZURE_TENANT_ID, and AZURE_SUBSCRIPTION_ID
+      status: resolved
+    - value: nl-cognitive-mesh-github-actions
+      source: Azure Entra app registration created on 2026-07-12
+      classification: active reference
+      action: use as the current phoenixvc/cognitive-mesh deployment identity until transfer; add neuralliquid/cognitive-mesh federated subjects after transfer
+      status: resolved-for-current-repo
+      details:
+        client_id: 56e66921-009d-4f38-abff-d7f63f8987de
+        service_principal_object_id: d12fda42-7c39-47c4-9103-b4b0a9e350db
+        federated_subjects:
+          - repo:phoenixvc/cognitive-mesh:ref:refs/heads/dev
+          - repo:phoenixvc/cognitive-mesh:ref:refs/heads/main
+          - repo:phoenixvc/cognitive-mesh:environment:production
+        role_assignments:
+          - role: AcrPush
+            scope: myssharedacr
+          - role: Website Contributor
+            scope: nl-prod-cognitive-mesh-rg
+    - value: "repo:phoenixvc/cognitive-mesh:*"
+      source: migration search target; no local literal match found
+      classification: unknown or externally consumed reference
+      action: no matching subject found in checked candidate GitHub Actions app registrations; create NeuralLiquid subject only after intended deployment identity is chosen
+      status: resolved-not-present-in-visible-azure-scope
+      checked_candidate_app_registrations:
+        - mys-dev-github-actions
+        - mys-prod-github-actions
+        - docket-github-actions
+        - phoenix-website-github-actions
+        - convolens-sp
+        - hov-shared-deploy-sp
+
+  container_images:
+    - value: cognitive-mesh-api
+      source: .github/workflows/deploy.yml and docker-compose.yml
+      classification: active reference
+      action: retain image name unless package ownership requires repository-owner migration
+    - value: cognitive-mesh-frontend
+      source: .github/workflows/deploy-frontend.yml and docker-compose.yml
+      classification: active reference
+      action: retain image name unless package ownership requires repository-owner migration
+    - value: redis:8-alpine
+      source: docker-compose.yml
+      classification: PhoenixVC-hosted dependency
+      action: external upstream image; retain
+    - value: qdrant/qdrant:latest
+      source: docker-compose.yml
+      classification: PhoenixVC-hosted dependency
+      action: external upstream image; retain
+    - value: mcr.microsoft.com/azure-storage/azurite:latest
+      source: docker-compose.yml
+      classification: PhoenixVC-hosted dependency
+      action: external upstream image; retain
+
+  package_names:
+    - value: phoenixvc org-level container packages
+      source: gh api orgs/phoenixvc/packages?package_type=container
+      classification: PhoenixVC-hosted dependency
+      action: no Cognitive Mesh container package exists under phoenixvc GHCR as of 2026-07-12; retain Docket and Sluice packages under PhoenixVC
+      status: resolved
+      packages:
+        - name: pvc-costops-analytics-ingestion
+          repository: phoenixvc/docket
+          visibility: private
+        - name: pvc-costops-analytics-advisor
+          repository: phoenixvc/docket
+          visibility: private
+        - name: pvc-costops-analytics-api
+          repository: phoenixvc/docket
+          visibility: private
+        - name: sluice-dashboard
+          repository: phoenixvc/sluice
+          visibility: public
+        - name: sluice-state-service
+          repository: phoenixvc/sluice
+          visibility: public
+        - name: sluice-dashboard-next
+          repository: phoenixvc/sluice
+          visibility: public
+        - name: docket-advisor
+          repository: phoenixvc/docket
+          visibility: public
+        - name: docket-ingestion
+          repository: phoenixvc/docket
+          visibility: public
+        - name: docket-api
+          repository: phoenixvc/docket
+          visibility: public
+
+  deployment_targets:
+    - value: staging.cognitivemesh.io
+      source: .github/workflows/deploy.yml and .github/workflows/deploy-frontend.yml
+      classification: active reference
+      action: DNS lookup failed on 2026-07-12; treat workflow URL as stale or unprovisioned until DNS is created
+      status: confirmed blocker
+    - value: cognitivemesh.io
+      source: .github/workflows/deploy.yml and .github/workflows/deploy-frontend.yml
+      classification: active reference
+      action: DNS lookup failed on 2026-07-12; treat workflow URL as stale or unprovisioned until DNS is created
+      status: confirmed blocker
+    - value: api.cognitivemesh.io
+      source: .github/workflows/deploy-frontend.yml
+      classification: active reference
+      action: DNS lookup failed on 2026-07-12; treat workflow URL as stale or unprovisioned until DNS is created
+      status: confirmed blocker
+    - value: AKS_CLUSTER_NAME
+      source: .github/workflows/deploy.yml and .github/workflows/deploy-frontend.yml
+      classification: active reference
+      action: no AKS clusters found in active Azure subscription bb4e3882-2079-4bab-8974-611bc0b8bb58
+      status: confirmed blocker
+    - value: AKS_RESOURCE_GROUP
+      source: .github/workflows/deploy.yml and .github/workflows/deploy-frontend.yml
+      classification: active reference
+      action: no Cognitive Mesh or AKS resource group found in active Azure subscription bb4e3882-2079-4bab-8974-611bc0b8bb58
+      status: confirmed blocker
+    - value: myssharedacr.azurecr.io
+      source: Azure resource inventory
+      classification: active reference
+      action: use as the target shared registry for new NeuralLiquid Cognitive Mesh deployments
+      status: resolved
+      details:
+        resource_group: mys-global-shared-rg
+        location: southafricanorth
+        resource_id: /subscriptions/bb4e3882-2079-4bab-8974-611bc0b8bb58/resourceGroups/mys-global-shared-rg/providers/Microsoft.ContainerRegistry/registries/myssharedacr
+
+  external_docs:
+    - value: README.md
+      source: local file scan
+      classification: current ownership statement
+      action: rewrite current ownership positioning to NeuralLiquid, preserving PhoenixVC incubation history
+      details:
+        active_phrases:
+          - "intelligence and governance core of the phoenixvc platform"
+          - "Every other phoenixvc service either feeds it data, routes work through it, or consumes its outputs."
+    - value: repository description
+      source: GitHub repository metadata
+      classification: current ownership statement
+      action: replace "Relaunching as neuralliquid.ai" with stable NeuralLiquid ownership wording
+    - value: repository topics
+      source: GitHub repository metadata
+      classification: current ownership statement
+      action: remove stale phoenixvc topic if no longer active owner; retain neuralliquid topic
+
+  downstream_consumers:
+    - value: sluice
+      source: README.md ecosystem table
+      classification: PhoenixVC-hosted dependency
+      action: retain PhoenixVC owner and clarify cross-organisation infrastructure boundary
+    - value: docket
+      source: README.md ecosystem table
+      classification: PhoenixVC-hosted dependency
+      action: retain PhoenixVC owner and clarify cost attribution boundary
+    - value: baton
+      source: README.md ecosystem table
+      classification: PhoenixVC-hosted dependency
+      action: user confirmed phoenix-flow changed to baton; update README ecosystem wording in pre-transfer documentation cleanup
+      status: resolved
+    - value: deck
+      source: README.md ecosystem table
+      classification: PhoenixVC-hosted dependency
+      action: retain PhoenixVC owner and clarify ops-tool dependency boundary
+    - value: retort
+      source: README.md ecosystem table
+      classification: PhoenixVC-hosted dependency
+      action: retain PhoenixVC owner and clarify scaffold dependency boundary
+    - value: org-meta
+      source: README.md ecosystem table
+      classification: PhoenixVC-hosted dependency
+      action: retain PhoenixVC owner and clarify org-intelligence boundary until NeuralLiquid org-meta exists
+    - value: mcp-org
+      source: migration plan and cross-repository infrastructure inventory
+      classification: PhoenixVC-hosted dependency
+      action: retain PhoenixVC owner and clarify MCP aggregation boundary
+    - value: mystira-workspace
+      source: README.md ecosystem table
+      classification: PhoenixVC-hosted dependency
+      action: retain PhoenixVC owner and clarify application dependency boundary
+
+  generated_sources:
+    - value: .github/pr-361-review-issues.json
+      source: repository file list
+      classification: generated output
+      action: find source workflow or generator before editing generated issue content
+    - value: src/UILayer/web/src/lib/api/generated
+      source: repository file list
+      classification: generated output
+      action: fix OpenAPI/source generator rather than hand-editing generated API bindings
+
+  archived_prototypes: []
+
+blockers:
+  - Review whether `mareeben` should be restored from write to admin on the transferred repository.
+  - Frontend App Service Terraform drift must be reconciled or explicitly accepted before any full production Terraform apply.
+  - DNS/custom-domain ownership must be moved into NeuralLiquid-owned infrastructure before long-term production; keep Mystira workspace DNS as a temporary bridge only if it remains the current source of truth.
+
+resolved_blockers:
+  - User confirmed the stale phoenix-flow ecosystem entry should be baton; manifest now classifies baton as the PhoenixVC-hosted project tracker dependency.
+  - Active Azure subscription was identified as bb4e3882-2079-4bab-8974-611bc0b8bb58, tenant 9530cd32-9e33-47f0-9247-ed964730b580.
+  - Shared ACR decision resolved: use myssharedacr in mys-global-shared-rg, southafricanorth.
+  - User decided initial deployment is production only, represented by prod plus staging-as-prod-slot.
+  - User decided to use x.cognitivemesh.neuralliquid.ai domains for now.
+  - User decided AKS_CLUSTER_NAME and AKS_RESOURCE_GROUP are no longer needed because AKS is out of scope for the initial deployment.
+  - Production GitHub environment was created on phoenixvc/cognitive-mesh on 2026-07-12.
+  - Deploy workflows were rewritten to remove AKS/Kustomize/kubectl and ACR username/password secrets, push to myssharedacr, and deploy Azure Web App production plus staging slot.
+  - Terraform feature flags now default expensive optional resources to false: networking, monitoring, Key Vault, storage, Cosmos DB, Redis, Qdrant, dedicated OpenAI, AI Search, legacy frontend hosting, and Web Apps.
+  - NeuralLiquid Terraform remote state backend was bootstrapped in Azure: nl-cognitive-mesh-tfstate-rg / nlcognitivemeshtfstate / tfstate.
+  - Initial prod Terragrunt apply partially succeeded on B1, then exposed Azure's Basic SKU slot limit. Prod was moved to S1 because Standard is required for deployment slots.
+  - Prod Terragrunt apply completed on 2026-07-12: resource group, S1 Linux App Service plan, API Web App, frontend Web App, both staging slots, and four AcrPull role assignments to myssharedacr.
+  - GitHub Actions variables were populated on phoenixvc/cognitive-mesh: AZURE_WEBAPP_RESOURCE_GROUP, COGNITIVE_MESH_API_APP_NAME, and COGNITIVE_MESH_FRONTEND_APP_NAME.
+  - Dedicated OIDC deployment identity nl-cognitive-mesh-github-actions was created with federation for phoenixvc/cognitive-mesh dev/main branches and production environment.
+  - Deployment workflows were updated to use AZURE_CLIENT_ID, AZURE_TENANT_ID, and AZURE_SUBSCRIPTION_ID instead of AZURE_CREDENTIALS.
+  - Post-apply Terragrunt plan reports no changes.
+  - Terraform validate succeeds with AzureRM provider 4.80.0 after updating the Cosmos DB connection string output for provider 4.x.
+  - The only visible OpenAI resource match is pvc-prod-sluice-aoai in pvc-prod-sluice-rg, supporting the README claim that model access should route through sluice rather than a Cognitive Mesh-owned AOAI resource.
+  - GitHub App installation inventory is visible for phoenixvc. Relevant installed apps include Renovate, Stilla, Codecov, Cursor, ChatGPT Codex Connector, Claude, Vercel, Sentry, CodeRabbit, Greptile, Devin, and phoenixvc-actions-runner.
+  - Selected app installation IDs were narrowed on 2026-07-13: Renovate `101140936`, Stilla `116485390`, Devin `68460896`, and phoenixvc-actions-runner `111911804`.
+  - Selected GitHub App repository coverage was cleared by PAT-backed installation repository queries: Renovate and Stilla include phoenixvc/cognitive-mesh, Devin is inactive for this transfer, and phoenixvc-actions-runner has zero repositories and is not deployed.
+  - GitHub package inventory is visible; no phoenixvc Cognitive Mesh container packages were found.
+  - Organization Actions secrets and variables are visible; org variables are empty and org secrets do not contain the ACR/AKS/Slack names required by Cognitive Mesh deployment workflows.
+  - Batch 2 migration package, routing Terraform, Docket usage forwarding, Docket auth settings, Sluice secret bridge durability, and OIDC readiness documentation are merged through dev commit 792454d.
+  - Production and staging CogMesh Sluice health report configured, direct provider fallback disabled, and Docket external auth configured.
+  - Production and staging App Service Key Vault references for SLUICE_API_KEY report Resolved.
+  - Docket health returns 200 with table backend, and CogMesh-to-Docket usage ingestion has been production-smoked through the canonical Docket endpoint.
+  - Repository transfer completed on 2026-07-14; old phoenixvc/cognitive-mesh API path redirects to neuralliquid/cognitive-mesh.
+  - Target repository variables, secrets, environments, ruleset, Actions enablement, active workflows, OIDC federated credentials, and no-webhook/no-Pages state were validated after transfer without reading secret values.
+  - API and frontend deploys ran successfully from neuralliquid/cognitive-mesh on dev and deployed sha-5e0567a images to production and staging.
+  - Post-transfer hardening restored mareeben admin access, reconciled prod App Service Terraform drift, and applied a zero-destroy prod update.
+  - Root Terragrunt configuration moved from infra/terragrunt.hcl to infra/root.hcl; environment includes now use find_in_parent_folders("root.hcl").
+  - NeuralLiquid Cognitive Mesh Terraform state now manages the public DNS CNAME/TXT records for cognitive-mesh.neuralliquid.ai, control.cognitive-mesh.neuralliquid.ai, and api.cognitivemesh.neuralliquid.ai.
+  - Full prod Terragrunt plan reported no changes after App Service reconciliation and DNS imports.
+  - Docket-backed attribution path was re-smoked with synthetic correlation codex-docket-smoke-20260714233933; CogMesh accepted the event and Docket logs showed POST /usage/model-events returned 200 OK. Treat as technical readiness evidence, not real funding usage volume.
+
+validation:
+  local_searches:
+    - "rg -n phoenix README.md"
+    - "rg -n AZURE providersettings.json"
+    - "rg -n \"secrets\\.\" .github/workflows"
+    - "rg -n \"github\\.repository|github\\.server_url|environment:|url:|IMAGE_NAME|ACR_|AKS_|AZURE_CREDENTIALS|SLACK_WEBHOOK\" .github/workflows"
+  api_queries:
+    - repos/phoenixvc/cognitive-mesh
+    - repos/phoenixvc/cognitive-mesh/branches
+    - repos/phoenixvc/cognitive-mesh/releases
+    - repos/phoenixvc/cognitive-mesh/rulesets
+    - repos/phoenixvc/cognitive-mesh/environments
+    - repos/phoenixvc/cognitive-mesh/actions/secrets
+    - repos/phoenixvc/cognitive-mesh/actions/variables
+    - repos/phoenixvc/cognitive-mesh/environments/staging
+    - repos/phoenixvc/cognitive-mesh/environments/production
+    - orgs/phoenixvc/actions/secrets
+    - orgs/phoenixvc/actions/variables
+    - orgs/phoenixvc/installations
+    - orgs/phoenixvc/packages?package_type=container
+    - /user/installations/{installation_id}/repositories for selected apps (403 with the default gh OAuth token; later cleared with PAT-backed installation repository queries)
+  azure_queries:
+    - az account show
+    - az resource list for Cognitive Mesh and mesh names
+    - az resource list for Microsoft.ContainerRegistry/registries
+    - az resource list for Microsoft.ContainerService/managedClusters
+    - az resource list for OpenAI/AOAI resources
+    - Graph federatedIdentityCredentials for candidate GitHub Actions app registrations
+    - az group create for nl-cognitive-mesh-tfstate-rg
+    - az storage account create for nlcognitivemeshtfstate
+    - az storage container create for tfstate
+  terraform_checks:
+    - terraform init -backend=false
+    - terraform validate
+    - terragrunt plan -no-color in infra/environments/prod
+  dns_queries:
+    - Resolve-DnsName cognitivemesh.io
+    - Resolve-DnsName staging.cognitivemesh.io
+    - Resolve-DnsName api.cognitivemesh.io

@@ -1,9 +1,7 @@
 using System.Collections.Concurrent;
-using Azure;
-using Azure.AI.OpenAI;
+using CognitiveMesh.Shared.Interfaces;
 using FoundationLayer.EnterpriseConnectors;
 using Microsoft.Extensions.Logging;
-using OpenAI.Chat;
 
 namespace MetacognitiveLayer.ContinuousLearning;
 
@@ -13,7 +11,7 @@ namespace MetacognitiveLayer.ContinuousLearning;
 /// </summary>
 public class LearningManager
 {
-    private readonly ChatClient _chatClient;
+    private readonly ILLMClient _llmClient;
     private readonly FeatureFlagManager _featureFlagManager;
     private readonly ILogger<LearningManager>? _logger;
 
@@ -81,20 +79,15 @@ public class LearningManager
     /// <summary>
     /// Initializes a new instance of the <see cref="LearningManager"/> class.
     /// </summary>
-    /// <param name="openAIEndpoint">The Azure OpenAI endpoint URL.</param>
-    /// <param name="openAIApiKey">The Azure OpenAI API key.</param>
-    /// <param name="completionDeployment">The deployment name for chat completions.</param>
+    /// <param name="llmClient">The LLM client for routed learning report generation.</param>
     /// <param name="featureFlagManager">The feature flag manager for checking enablement.</param>
     /// <param name="logger">Optional logger for structured logging.</param>
     public LearningManager(
-        string openAIEndpoint,
-        string openAIApiKey,
-        string completionDeployment,
+        ILLMClient llmClient,
         FeatureFlagManager featureFlagManager,
         ILogger<LearningManager>? logger = null)
     {
-        var aoaiClient = new AzureOpenAIClient(new Uri(openAIEndpoint), new AzureKeyCredential(openAIApiKey));
-        _chatClient = aoaiClient.GetChatClient(completionDeployment);
+        _llmClient = llmClient ?? throw new ArgumentNullException(nameof(llmClient));
         _featureFlagManager = featureFlagManager ?? throw new ArgumentNullException(nameof(featureFlagManager));
         _logger = logger;
     }
@@ -157,18 +150,13 @@ public class LearningManager
         var systemPrompt = "You are a learning report generation system. Generate a detailed learning report based on the provided data.";
         var userPrompt = $"Generate a learning report based on the recent learning data. Currently enabled frameworks: {enabledList}. Total active: {_enabledFrameworks.Count}.";
 
-        var completion = await _chatClient.CompleteChatAsync(
+        return await _llmClient.GenerateChatCompletionAsync(
             [
-                new SystemChatMessage(systemPrompt),
-                new UserChatMessage(userPrompt)
+                new ChatMessage("system", systemPrompt),
+                new ChatMessage("user", userPrompt)
             ],
-            new ChatCompletionOptions
-            {
-                Temperature = 0.3f,
-                MaxOutputTokenCount = 800
-            });
-
-        return completion.Value.Content[0].Text;
+            0.3f,
+            800);
     }
 
     #endregion

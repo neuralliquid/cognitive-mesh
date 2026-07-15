@@ -5,8 +5,8 @@
 
 # Generate the Azure provider block in each child module
 generate "provider" {
-  path      = "provider.tf"
-  if_exists = "overwrite_terragrunt"
+  path      = "providers.tf"
+  if_exists = "overwrite"
   contents  = <<-EOF
     terraform {
       required_version = ">= 1.7.0"
@@ -27,6 +27,9 @@ generate "provider" {
         resource_group {
           prevent_deletion_if_contains_resources = true
         }
+        cognitive_account {
+          purge_soft_delete_on_destroy = false
+        }
       }
     }
   EOF
@@ -37,11 +40,11 @@ remote_state {
   backend = "azurerm"
   generate = {
     path      = "backend.tf"
-    if_exists = "overwrite_terragrunt"
+    if_exists = "overwrite"
   }
   config = {
-    resource_group_name  = "cognitive-mesh-tfstate-rg"
-    storage_account_name = "cognitivemeshtfstate"
+    resource_group_name  = "nl-cognitive-mesh-tfstate-rg"
+    storage_account_name = "nlcognitivemeshtfstate"
     container_name       = "tfstate"
     key                  = "${path_relative_to_include()}/terraform.tfstate"
   }

@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cognitive-mesh.local/schemas/agent-contracts/benchmark-kind.schema.json",
+  "title": "Cognitive Mesh Benchmark Kind",
+  "description": "Canonical benchmark gate identifiers used by workflow and harness contracts.",
+  "enum": [
+    "interactive-coordination-latency",
+    "parallel-fanout-throughput",
+    "failure-injection-recovery",
+    "maker-long-horizon"
+  ]
+}

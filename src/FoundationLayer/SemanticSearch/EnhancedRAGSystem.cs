@@ -1,14 +1,12 @@
 using System.Text;
-using Azure;
-using Azure.AI.OpenAI;
+using CognitiveMesh.Shared.Interfaces;
 using FoundationLayer.SemanticSearch.Ports;
-using OpenAI.Chat;
 
 namespace FoundationLayer.SemanticSearch;
 
 /// <summary>
 /// Provides an enhanced Retrieval-Augmented Generation (RAG) system that combines
-/// Azure AI Search vector indexing with OpenAI embeddings and completions.
+/// Azure AI Search vector indexing with routed embeddings and completions.
 /// Supports optional integration with Microsoft Fabric data endpoints and
 /// Azure Data Factory pipelines through the <see cref="IDataPipelinePort"/>.
 /// </summary>
@@ -16,10 +14,8 @@ public class EnhancedRAGSystem
 {
     private readonly SearchClient _searchClient;
     private readonly SearchIndexClient _indexClient;
-    private readonly AzureOpenAIClient _openAIClient;
-    private readonly ChatClient _chatClient;
+    private readonly ILLMClient _llmClient;
     private readonly string _indexName;
-    private readonly string _embeddingDeployment;
     private readonly IDataPipelinePort? _dataPipeline;
     private readonly ILogger<EnhancedRAGSystem>? _logger;
 
@@ -28,10 +24,8 @@ public class EnhancedRAGSystem
     /// </summary>
     /// <param name="searchClient">The Azure AI Search client for querying the index.</param>
     /// <param name="indexClient">The Azure AI Search index management client.</param>
-    /// <param name="openAIClient">The Azure OpenAI client for embeddings and completions.</param>
+    /// <param name="llmClient">The LLM client for routed embeddings and completions.</param>
     /// <param name="indexName">The name of the search index.</param>
-    /// <param name="embeddingDeployment">The OpenAI deployment name for generating embeddings.</param>
-    /// <param name="completionDeployment">The OpenAI deployment name for chat completions.</param>
     /// <param name="dataPipeline">
     /// Optional data pipeline port for Fabric and Data Factory integration.
     /// When null, pipeline operations are skipped gracefully.
@@ -40,19 +34,15 @@ public class EnhancedRAGSystem
     public EnhancedRAGSystem(
         SearchClient searchClient,
         SearchIndexClient indexClient,
-        AzureOpenAIClient openAIClient,
+        ILLMClient llmClient,
         string indexName,
-        string embeddingDeployment,
-        string completionDeployment,
         IDataPipelinePort? dataPipeline = null,
         ILogger<EnhancedRAGSystem>? logger = null)
     {
         _searchClient = searchClient;
         _indexClient = indexClient;
-        _openAIClient = openAIClient;
-        _chatClient = openAIClient.GetChatClient(completionDeployment);
+        _llmClient = llmClient ?? throw new ArgumentNullException(nameof(llmClient));
         _indexName = indexName;
-        _embeddingDeployment = embeddingDeployment;
         _dataPipeline = dataPipeline;
         _logger = logger;
     }
@@ -114,11 +104,7 @@ public class EnhancedRAGSystem
     public async Task IndexDocumentAsync(KnowledgeDocument document)
     {
         // Generate embedding for document content
-        var embeddingResponse = await _openAIClient.GetEmbeddingsAsync(
-            _embeddingDeployment,
-            new EmbeddingsOptions(document.Content));
-
-        float[] embedding = embeddingResponse.Value.Data[0].Embedding.ToArray();
+        var embedding = await _llmClient.GetEmbeddingsAsync(document.Content);
 
         // Create search document
         var searchDocument = new Dictionary<string, object>
@@ -140,11 +126,7 @@ public class EnhancedRAGSystem
     public async Task<List<KnowledgeDocument>> SearchAsync(string query, int limit = 5, string filter = null)
     {
         // Generate embedding for query
-        var embeddingResponse = await _openAIClient.GetEmbeddingsAsync(
-            _embeddingDeployment,
-            new EmbeddingsOptions(query));
-
-        float[] queryEmbedding = embeddingResponse.Value.Data[0].Embedding.ToArray();
+        var queryEmbedding = await _llmClient.GetEmbeddingsAsync(query);
 
         // Create vector query
         var vectorQuery = new VectorizedQuery(queryEmbedding)
@@ -222,20 +204,11 @@ public class EnhancedRAGSystem
         // Create message list and completion options
         var messages = new List<ChatMessage>
         {
-            new SystemChatMessage(systemPrompt),
-            new UserChatMessage($"Context:\n{context}\n\nQuestion: {query}")
+            new("system", systemPrompt),
+            new("user", $"Context:\n{context}\n\nQuestion: {query}")
         };
 
-        var chatCompletionOptions = new ChatCompletionOptions
-        {
-            Temperature = 0.3f,
-            MaxOutputTokenCount = 800
-        };
-
-        // Generate response
-        var completion = await _chatClient.CompleteChatAsync(messages, chatCompletionOptions);
-
-        return completion.Value.Content[0].Text;
+        return await _llmClient.GenerateChatCompletionAsync(messages, 0.3f, 800);
     }
 
     /// <summary>

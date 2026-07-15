@@ -1,0 +1,707 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cognitive-mesh.local/schemas/agent-contracts/workflow-contract.schema.json",
+  "title": "Cognitive Mesh Workflow Contract",
+  "description": "Machine-readable contract for a governed multi-agent workflow owned by Cognitive Mesh.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "contractId",
+    "lifecycleState",
+    "owner",
+    "trigger",
+    "input",
+    "steps",
+    "stateHandoff",
+    "authority",
+    "runtime",
+    "approval",
+    "audit",
+    "rollback",
+    "evaluation"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "agent-workflow-contract/v1"
+    },
+    "contractId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{2,127}$"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "description": {
+      "type": "string"
+    },
+    "sourceAdr": {
+      "type": "string",
+      "description": "Repository-relative pointer to the source ADR or operating-model decision."
+    },
+    "lifecycleState": {
+      "enum": [
+        "proposed",
+        "specified",
+        "harnessed",
+        "verified",
+        "promoted",
+        "restricted",
+        "retired"
+      ]
+    },
+    "owner": {
+      "$ref": "#/$defs/owner"
+    },
+    "trigger": {
+      "$ref": "#/$defs/trigger"
+    },
+    "input": {
+      "$ref": "#/$defs/ioSchema"
+    },
+    "output": {
+      "$ref": "#/$defs/ioSchema"
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/step"
+      }
+    },
+    "stateHandoff": {
+      "$ref": "#/$defs/stateHandoff"
+    },
+    "authority": {
+      "$ref": "#/$defs/authority"
+    },
+    "runtime": {
+      "$ref": "#/$defs/runtime"
+    },
+    "approval": {
+      "$ref": "#/$defs/approval"
+    },
+    "audit": {
+      "$ref": "#/$defs/audit"
+    },
+    "rollback": {
+      "$ref": "#/$defs/rollback"
+    },
+    "evaluation": {
+      "$ref": "#/$defs/evaluation"
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": {
+        "type": [
+          "string",
+          "number",
+          "boolean",
+          "null"
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "owner": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repo",
+        "team"
+      ],
+      "properties": {
+        "repo": {
+          "type": "string",
+          "minLength": 1
+        },
+        "team": {
+          "type": "string",
+          "minLength": 1
+        },
+        "batonTaskId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    },
+    "trigger": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "entrypoint",
+        "idempotencyKey"
+      ],
+      "properties": {
+        "type": {
+          "enum": [
+            "manual",
+            "api",
+            "event",
+            "schedule",
+            "baton-task",
+            "github-workflow"
+          ]
+        },
+        "entrypoint": {
+          "type": "string",
+          "minLength": 1
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "minLength": 1
+        },
+        "preconditions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "ioSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contentType",
+        "schema"
+      ],
+      "properties": {
+        "contentType": {
+          "enum": [
+            "application/json",
+            "text/plain"
+          ]
+        },
+        "schema": {
+          "type": "object",
+          "description": "Inline JSON Schema fragment for this workflow boundary."
+        },
+        "examples": {
+          "type": "array",
+          "items": {}
+        }
+      }
+    },
+    "step": {
+      "type": "object",
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "human-approval"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "approvalGateId"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "rollback"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "rollbackStepId"
+            ]
+          }
+        }
+      ],
+      "required": [
+        "stepId",
+        "order",
+        "name",
+        "kind",
+        "inputRef",
+        "outputRef",
+        "authorityScope",
+        "tools",
+        "modelRoute",
+        "costRoute",
+        "timeoutMs",
+        "retry",
+        "backpressure",
+        "idempotency",
+        "auditEvents"
+      ],
+      "properties": {
+        "stepId": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]{1,63}$"
+        },
+        "order": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "enum": [
+            "validate",
+            "route",
+            "reason",
+            "tool-call",
+            "human-approval",
+            "aggregate",
+            "rollback",
+            "emit-audit"
+          ]
+        },
+        "inputRef": {
+          "type": "string",
+          "minLength": 1
+        },
+        "outputRef": {
+          "type": "string",
+          "minLength": 1
+        },
+        "stateWrites": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "dependsOn": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "authorityScope": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tools": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/toolRef"
+          }
+        },
+        "modelRoute": {
+          "$ref": "#/$defs/modelRoute"
+        },
+        "costRoute": {
+          "$ref": "#/$defs/costRoute"
+        },
+        "timeoutMs": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "retry": {
+          "$ref": "#/$defs/retry"
+        },
+        "backpressure": {
+          "$ref": "#/$defs/backpressure"
+        },
+        "idempotency": {
+          "$ref": "#/$defs/idempotency"
+        },
+        "approvalGateId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rollbackStepId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "auditEvents": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "toolRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "toolId",
+        "mode"
+      ],
+      "properties": {
+        "toolId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mode": {
+          "enum": [
+            "read",
+            "write",
+            "execute",
+            "mocked"
+          ]
+        },
+        "required": {
+          "type": "boolean",
+          "default": true
+        }
+      }
+    },
+    "modelRoute": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "routingPolicyRef",
+        "providerPolicy"
+      ],
+      "properties": {
+        "routingPolicyRef": {
+          "type": "string",
+          "minLength": 1
+        },
+        "providerPolicy": {
+          "enum": [
+            "fixed",
+            "fallback",
+            "gateway-managed",
+            "none"
+          ]
+        },
+        "modelClass": {
+          "enum": [
+            "none",
+            "fast",
+            "balanced",
+            "reasoning",
+            "embedding"
+          ]
+        },
+        "maxTokens": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "costRoute": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "costCenter",
+        "usageMeter",
+        "budgetCapUsd"
+      ],
+      "properties": {
+        "costCenter": {
+          "type": "string",
+          "minLength": 1
+        },
+        "usageMeter": {
+          "type": "string",
+          "minLength": 1
+        },
+        "budgetCapUsd": {
+          "type": "number",
+          "minimum": 0
+        },
+        "docketRouteRef": {
+          "type": "string"
+        }
+      }
+    },
+    "retry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "maxAttempts",
+        "strategy"
+      ],
+      "properties": {
+        "maxAttempts": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "strategy": {
+          "enum": [
+            "none",
+            "fixed",
+            "exponential"
+          ]
+        },
+        "baseDelayMs": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "backpressure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "maxConcurrency",
+        "queuePolicy"
+      ],
+      "properties": {
+        "maxConcurrency": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "queuePolicy": {
+          "enum": [
+            "reject",
+            "queue",
+            "shed-low-priority"
+          ]
+        },
+        "queueLimit": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "idempotency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "keyRef",
+        "effect"
+      ],
+      "properties": {
+        "keyRef": {
+          "type": "string",
+          "minLength": 1
+        },
+        "effect": {
+          "enum": [
+            "read-only",
+            "dedupe",
+            "exactly-once-required"
+          ]
+        }
+      }
+    },
+    "stateHandoff": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "store",
+        "checkpointPolicy",
+        "handoffKeys"
+      ],
+      "properties": {
+        "store": {
+          "enum": [
+            "in-memory",
+            "checkpoint-manager",
+            "durable-store",
+            "external"
+          ]
+        },
+        "checkpointPolicy": {
+          "enum": [
+            "none",
+            "per-step",
+            "per-stage",
+            "on-state-change"
+          ]
+        },
+        "handoffKeys": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "retentionDays": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "defaultScope",
+        "escalationPolicy"
+      ],
+      "properties": {
+        "defaultScope": {
+          "type": "string",
+          "minLength": 1
+        },
+        "restrictedScopes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "escalationPolicy": {
+          "enum": [
+            "deny",
+            "human-approval",
+            "service-policy"
+          ]
+        }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "engine",
+        "timeoutMs",
+        "defaultRetry",
+        "defaultBackpressure"
+      ],
+      "properties": {
+        "engine": {
+          "enum": [
+            "DurableWorkflowEngine",
+            "MultiAgentOrchestrationEngine",
+            "external"
+          ]
+        },
+        "timeoutMs": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "defaultRetry": {
+          "$ref": "#/$defs/retry"
+        },
+        "defaultBackpressure": {
+          "$ref": "#/$defs/backpressure"
+        }
+      }
+    },
+    "approval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "gates"
+      ],
+      "properties": {
+        "mode": {
+          "enum": [
+            "pre-approved",
+            "policy-gated",
+            "human-gated",
+            "disabled"
+          ]
+        },
+        "gates": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "gateId",
+              "condition",
+              "approver"
+            ],
+            "properties": {
+              "gateId": {
+                "type": "string"
+              },
+              "condition": {
+                "type": "string"
+              },
+              "approver": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "audit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "eventSchema",
+        "requiredEvents"
+      ],
+      "properties": {
+        "eventSchema": {
+          "type": "string",
+          "minLength": 1
+        },
+        "requiredEvents": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "tracePropagation": {
+          "enum": [
+            "w3c",
+            "baton-trace",
+            "none"
+          ]
+        }
+      }
+    },
+    "rollback": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "strategy",
+        "steps"
+      ],
+      "properties": {
+        "strategy": {
+          "enum": [
+            "none",
+            "compensating-steps",
+            "checkpoint-restore",
+            "manual"
+          ]
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "verification": {
+          "type": "string"
+        }
+      }
+    },
+    "evaluation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "harnessContractRef",
+        "requiredGates"
+      ],
+      "properties": {
+        "harnessContractRef": {
+          "type": "string",
+          "minLength": 1
+        },
+        "requiredGates": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "benchmark-kind.schema.json"
+          }
+        },
+        "promotionRule": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

@@ -1,7 +1,6 @@
 "use client"
 import DraggableComponent from "@/components/DraggableComponent"
 import { useDragDrop } from "@/contexts/DragDropContext"
-import { motion } from "framer-motion"
 import { GripVertical, Maximize2, Minimize2, Package } from "lucide-react"
 import React, { useCallback, useEffect, useRef, useState } from "react"
 
@@ -427,7 +426,7 @@ export const DockZone: React.FC<DockZoneProps> = ({
     <>
       {/* Grid overlay only when dragging this DockZone */}
       <GridOverlay visible={isFloating && isDragging} />
-      <motion.div
+      <div
         ref={zoneRef}
         className={`
           relative transition-all duration-300 rounded-xl border-2 border-dashed
@@ -448,16 +447,6 @@ export const DockZone: React.FC<DockZoneProps> = ({
           top: isFloating ? floatPosition.y : undefined,
           cursor: isFloating ? "move" : undefined,
         }}
-        animate={isFloating ? { x: floatPosition.x, y: floatPosition.y } : { x: 0, y: 0 }}
-        transition={{ type: 'spring', stiffness: 180, damping: 14, mass: 1.2 }}
-        drag={isFloating}
-        dragMomentum={false}
-        onDrag={(e, info) => {
-          if (isFloating) {
-            setFloatPosition({ x: info.point.x, y: info.point.y })
-          }
-        }}
-        onDragEnd={handleDragEnd}
         onDrop={handleDrop}
         onDragOver={handleDragOver}
       >
@@ -706,7 +695,7 @@ export const DockZone: React.FC<DockZoneProps> = ({
             {dimensions.width} × {dimensions.height}
           </div>
         )}
-      </motion.div>
+      </div>
     </>
   )
 }

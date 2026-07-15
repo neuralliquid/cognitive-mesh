@@ -39,6 +39,74 @@ variable "common_tags" {
   }
 }
 
+# ---------- Feature Flags ----------
+
+variable "enable_networking" {
+  description = "Whether to deploy the virtual network module."
+  type        = bool
+  default     = false
+}
+
+variable "enable_monitoring" {
+  description = "Whether to deploy Log Analytics and Application Insights."
+  type        = bool
+  default     = false
+}
+
+variable "enable_keyvault" {
+  description = "Whether to deploy Key Vault and write generated secrets."
+  type        = bool
+  default     = false
+}
+
+variable "enable_storage" {
+  description = "Whether to deploy the storage module."
+  type        = bool
+  default     = false
+}
+
+variable "enable_cosmosdb" {
+  description = "Whether to deploy Cosmos DB."
+  type        = bool
+  default     = false
+}
+
+variable "enable_redis" {
+  description = "Whether to deploy Azure Cache for Redis."
+  type        = bool
+  default     = false
+}
+
+variable "enable_qdrant" {
+  description = "Whether to deploy Qdrant on Azure Container Instances."
+  type        = bool
+  default     = false
+}
+
+variable "enable_openai" {
+  description = "Whether to deploy a dedicated Azure OpenAI resource. Keep false for Cognitive Mesh prod; model egress should route through Sluice unless an exception is approved."
+  type        = bool
+  default     = false
+}
+
+variable "enable_ai_search" {
+  description = "Whether to deploy Azure AI Search."
+  type        = bool
+  default     = false
+}
+
+variable "enable_legacy_frontend_hosting" {
+  description = "Whether to deploy the legacy Node App Service frontend module."
+  type        = bool
+  default     = false
+}
+
+variable "enable_webapps" {
+  description = "Whether to deploy containerized API and frontend Web Apps."
+  type        = bool
+  default     = false
+}
+
 # ---------- CosmosDB ----------
 
 variable "cosmosdb_consistency_level" {
@@ -90,7 +158,7 @@ variable "qdrant_image" {
 # ---------- OpenAI ----------
 
 variable "openai_model_deployments" {
-  description = "Map of Azure OpenAI model deployments."
+  description = "Map of Azure OpenAI model deployments for explicit direct-provider exceptions only. Production Cognitive Mesh should use Sluice routing instead."
   type = map(object({
     model_name    = string
     model_version = string
@@ -153,6 +221,172 @@ variable "frontend_custom_domain" {
   description = "Custom domain for the frontend App Service. Set to null to skip."
   type        = string
   default     = null
+}
+
+# ---------- Public DNS ----------
+
+variable "enable_public_dns_records" {
+  description = "Whether to manage the public NeuralLiquid DNS records for Cognitive Mesh."
+  type        = bool
+  default     = false
+}
+
+variable "public_dns_zone_name" {
+  description = "Azure DNS zone name that hosts the public Cognitive Mesh records."
+  type        = string
+  default     = "neuralliquid.ai"
+}
+
+variable "public_dns_zone_resource_group_name" {
+  description = "Resource group containing the public DNS zone."
+  type        = string
+  default     = "mys-global-shared-rg"
+}
+
+variable "public_dns_api_target_hostname" {
+  description = "CNAME target hostname for the public API DNS record."
+  type        = string
+  default     = "cognitive-mesh-api-prod.azurewebsites.net"
+}
+
+variable "public_dns_frontend_target_hostname" {
+  description = "CNAME target hostname for the public frontend DNS records."
+  type        = string
+  default     = "cognitive-mesh-frontend-prod.azurewebsites.net"
+}
+
+variable "public_dns_app_service_verification_id" {
+  description = "App Service custom-domain verification ID used in asuid TXT records."
+  type        = string
+  default     = ""
+}
+
+# ---------- Container Web Apps ----------
+
+variable "shared_acr_name" {
+  description = "Existing shared Azure Container Registry name."
+  type        = string
+  default     = "myssharedacr"
+}
+
+variable "shared_acr_resource_group_name" {
+  description = "Resource group containing the shared Azure Container Registry."
+  type        = string
+  default     = "mys-global-shared-rg"
+}
+
+variable "webapp_service_plan_sku" {
+  description = "App Service Plan SKU for containerized Web Apps."
+  type        = string
+  default     = "B1"
+}
+
+variable "api_container_image" {
+  description = "Initial API container image name, including tag."
+  type        = string
+  default     = "cognitive-mesh-api:latest"
+}
+
+variable "frontend_container_image" {
+  description = "Initial frontend container image name, including tag."
+  type        = string
+  default     = "cognitive-mesh-frontend:latest"
+}
+
+variable "api_public_base_url" {
+  description = "Public API base URL."
+  type        = string
+  default     = "https://api.cognitivemesh.neuralliquid.ai"
+}
+
+variable "api_allowed_origins" {
+  description = "Allowed browser origins for API CORS."
+  type        = list(string)
+  default     = []
+}
+
+variable "api_sluice_base_url" {
+  description = "Sluice gateway base URL for Cognitive Mesh model egress. Keep empty until the production endpoint and API key secret URI are confirmed."
+  type        = string
+  default     = ""
+}
+
+variable "api_sluice_api_key_secret_uri" {
+  description = "Key Vault secret URI for the Sluice API key. The App Service receives this as a Key Vault reference, not a raw secret value."
+  type        = string
+  default     = ""
+}
+
+variable "api_sluice_model" {
+  description = "Logical Sluice model route used by Cognitive Mesh."
+  type        = string
+  default     = "default"
+}
+
+variable "api_sluice_max_tokens" {
+  description = "Maximum output tokens Cognitive Mesh may request through Sluice."
+  type        = number
+  default     = 16384
+}
+
+variable "api_docket_base_url" {
+  description = "Docket API base URL for model-usage attribution. Keep empty until the production endpoint and auth are confirmed."
+  type        = string
+  default     = ""
+}
+
+variable "api_docket_audience" {
+  description = "Docket API audience used to derive the /.default client-credentials scope for managed identity auth."
+  type        = string
+  default     = ""
+}
+
+variable "api_docket_scope" {
+  description = "Explicit Docket API scope for managed identity auth. Overrides api_docket_audience when set."
+  type        = string
+  default     = ""
+}
+
+variable "api_docket_api_key_secret_uri" {
+  description = "Key Vault secret URI for the Docket API key. The App Service receives this as a Key Vault reference, not a raw secret value."
+  type        = string
+  default     = ""
+}
+
+variable "frontend_mystira_auth_client_id" {
+  description = "Public Entra application client ID used by the frontend for Mystira identity login."
+  type        = string
+  default     = ""
+}
+
+variable "frontend_mystira_tenant_id" {
+  description = "Mystira Entra tenant ID used by the frontend for identity login."
+  type        = string
+  default     = ""
+}
+
+variable "frontend_show_preview_nav" {
+  description = "Whether the frontend exposes preview navigation links."
+  type        = bool
+  default     = false
+}
+
+variable "frontend_mystira_identity_base_url" {
+  description = "Mystira identity service base URL used by the frontend server-side auth routes."
+  type        = string
+  default     = "https://identity.mystira.app"
+}
+
+variable "frontend_mystira_oidc_client_id" {
+  description = "Mystira OIDC client ID used by the frontend server-side auth routes."
+  type        = string
+  default     = "neuralliquid-cognitive-mesh-web"
+}
+
+variable "frontend_mystira_oidc_client_secret_secret_uri" {
+  description = "Key Vault secret URI for the Mystira OIDC client secret. The App Service receives this as a Key Vault reference, not a raw secret value."
+  type        = string
+  default     = ""
 }
 
 # ---------- Networking ----------

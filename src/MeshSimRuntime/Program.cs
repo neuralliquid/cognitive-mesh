@@ -257,12 +257,23 @@ namespace CognitiveMesh.MeshSimRuntime
                 return new ContextTemplateResolver("templates", logger);
             });
 
-            // Add LLM provider (mock for now)
+            // Add LLM provider
             services.AddSingleton<ILLMProvider>(provider =>
             {
                 var loggerFactory = provider.GetRequiredService<ILoggerFactory>();
-                var logger = loggerFactory.CreateLogger<MockLLMProvider>();
-                return new MockLLMProvider(logger);
+                var sluiceBaseUrl = Environment.GetEnvironmentVariable("SLUICE_BASE_URL");
+                if (!string.IsNullOrWhiteSpace(sluiceBaseUrl))
+                {
+                    var logger = loggerFactory.CreateLogger<SluiceLLMProvider>();
+                    return new SluiceLLMProvider(
+                        sluiceBaseUrl,
+                        Environment.GetEnvironmentVariable("SLUICE_API_KEY") ?? string.Empty,
+                        Environment.GetEnvironmentVariable("SLUICE_MODEL") ?? "default",
+                        logger);
+                }
+
+                var mockLogger = loggerFactory.CreateLogger<MockLLMProvider>();
+                return new MockLLMProvider(mockLogger);
             });
 
             // Add tool runner

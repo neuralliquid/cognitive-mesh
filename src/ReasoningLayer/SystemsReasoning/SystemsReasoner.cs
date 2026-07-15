@@ -1,5 +1,5 @@
 using FoundationLayer.EnterpriseConnectors;
-using OpenAI.Chat;
+using CognitiveMesh.Shared.Interfaces;
 
 namespace CognitiveMesh.ReasoningLayer.SystemsReasoning;
 
@@ -11,21 +11,19 @@ namespace CognitiveMesh.ReasoningLayer.SystemsReasoning;
 public class SystemsReasoner
 {
     private readonly ILogger<SystemsReasoner> _logger;
-    private readonly ChatClient _chatClient;
+    private readonly ILLMClient _llmClient;
     private readonly FeatureFlagManager _featureFlagManager;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="SystemsReasoner"/> class.
     /// </summary>
     /// <param name="logger">The logger instance for structured logging.</param>
-    /// <param name="openAIClient">The Azure OpenAI client for LLM-based analysis.</param>
-    /// <param name="completionDeployment">The deployment name for chat completions.</param>
+    /// <param name="llmClient">The LLM client for routed model analysis.</param>
     /// <param name="featureFlagManager">The feature flag manager for gating operations.</param>
-    public SystemsReasoner(ILogger<SystemsReasoner> logger, AzureOpenAIClient openAIClient, string completionDeployment, FeatureFlagManager featureFlagManager)
+    public SystemsReasoner(ILogger<SystemsReasoner> logger, ILLMClient llmClient, FeatureFlagManager featureFlagManager)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        ArgumentNullException.ThrowIfNull(openAIClient);
-        _chatClient = openAIClient.GetChatClient(completionDeployment ?? throw new ArgumentNullException(nameof(completionDeployment)));
+        _llmClient = llmClient ?? throw new ArgumentNullException(nameof(llmClient));
         _featureFlagManager = featureFlagManager ?? throw new ArgumentNullException(nameof(featureFlagManager));
     }
 
@@ -73,22 +71,16 @@ public class SystemsReasoner
 
         var messages = new List<ChatMessage>
         {
-            new SystemChatMessage(systemPrompt),
-            new UserChatMessage($"System Description: {systemDescription}")
+            new("system", systemPrompt),
+            new("user", $"System Description: {systemDescription}")
         };
 
-        var options = new ChatCompletionOptions
-        {
-            Temperature = 0.3f,
-            MaxOutputTokenCount = 800
-        };
-
-        var completion = await _chatClient.CompleteChatAsync(messages, options, cancellationToken);
+        var completion = await _llmClient.GenerateChatCompletionAsync(messages, 0.3f, 800, cancellationToken);
 
         return new SystemsAnalysisResult
         {
             SystemDescription = systemDescription,
-            AnalysisReport = completion.Value.Content[0].Text
+            AnalysisReport = completion
         };
     }
 
@@ -129,18 +121,11 @@ public class SystemsReasoner
 
                 var messages = new List<ChatMessage>
                 {
-                    new SystemChatMessage(dataDiscoveryPrompt),
-                    new UserChatMessage($"System Description: {systemDescription}")
+                    new("system", dataDiscoveryPrompt),
+                    new("user", $"System Description: {systemDescription}")
                 };
 
-                var options = new ChatCompletionOptions
-                {
-                    Temperature = 0.2f,
-                    MaxOutputTokenCount = 500
-                };
-
-                var completion = await _chatClient.CompleteChatAsync(messages, options, cancellationToken);
-                enrichmentContext = completion.Value.Content[0].Text;
+                enrichmentContext = await _llmClient.GenerateChatCompletionAsync(messages, 0.2f, 500, cancellationToken);
                 endpointsConnected = 1; // Successfully queried the data discovery endpoint
             }
 
@@ -202,18 +187,11 @@ public class SystemsReasoner
 
                 var messages = new List<ChatMessage>
                 {
-                    new SystemChatMessage(pipelinePlanningPrompt),
-                    new UserChatMessage($"Pipeline Context: {pipelineContext}")
+                    new("system", pipelinePlanningPrompt),
+                    new("user", $"Pipeline Context: {pipelineContext}")
                 };
 
-                var options = new ChatCompletionOptions
-                {
-                    Temperature = 0.2f,
-                    MaxOutputTokenCount = 600
-                };
-
-                var completion = await _chatClient.CompleteChatAsync(messages, options, cancellationToken);
-                pipelinePlan = completion.Value.Content[0].Text;
+                pipelinePlan = await _llmClient.GenerateChatCompletionAsync(messages, 0.2f, 600, cancellationToken);
                 pipelinesTriggered = 1; // Successfully planned and triggered the pipeline
             }
 
