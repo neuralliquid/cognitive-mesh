@@ -10,9 +10,9 @@
 
 ## What it is
 
-cognitive-mesh is the **intelligence and governance core** of the phoenixvc platform. It is a complete enterprise AI platform structured as seven interdependent layers, each with its own domain logic, ports/adapters, and contributing agents. Think of it as the full-stack operating system for intelligent, governed AI workloads — from raw infrastructure (data stores, secrets, audit logs) up to a user-facing plugin dashboard.
+cognitive-mesh is the **intelligence and governance core** of the NeuralLiquid/PhoenixVC platform. It is a complete enterprise AI platform structured as seven interdependent layers, each with its own domain logic, ports/adapters, and contributing agents. Think of it as the full-stack operating system for intelligent, governed AI workloads — from raw infrastructure (data stores, secrets, audit logs) up to a user-facing plugin dashboard.
 
-It is the "thinking layer" that sits between raw model calls (via sluice) and the products that need intelligent, multi-step results. Every other phoenixvc service either feeds it data, routes work through it, or consumes its outputs.
+It is the "thinking layer" that sits between model-routing infrastructure (via sluice) and the products that need intelligent, multi-step results. Platform services either feed it data, route work through it, or consume its outputs.
 
 ---
 
@@ -114,7 +114,7 @@ AgencyLayer  MetacognitiveLayer  ReasoningLayer
     (security, data, RAG, audit, secrets)
          |
          v
-   sluice gateway      (all LLM calls route through here)
+   sluice gateway      (production model egress configured here)
          |
          v
    Azure OpenAI / model backends
@@ -189,8 +189,8 @@ npm run storybook    # http://localhost:6006 (component docs)
 
 | Repo | Role |
 |---|---|
-| **sluice** | AI data plane — all LLM calls from cognitive-mesh route through sluice for routing, observability, and cost attribution |
-| **docket** | Cost observability — attributes cognitive-mesh model spend via sluice OTEL spans; cost per agent run surfaced in Grafana |
+| **sluice** | AI data plane — production cognitive-mesh model egress is configured to route through sluice; current evidence verifies routing readiness and gateway auth, with live workload attribution still being hardened |
+| **docket** | Cost observability — cognitive-mesh can forward model-usage events to docket; synthetic ingestion smoke is verified, while funding-grade cost evidence still requires accumulated real workload volume |
 | **phoenix-flow** | Project tracker — proxies task-routing decisions to cognitive-mesh for AI-assisted triage and planning |
 | **deck** | Desktop ops tool — invokes cognitive-mesh agent teams for complex multi-step operations; surfaces agent status |
 | **retort** | Agent scaffold — retort-based projects register their agent configs into the mesh; retort generates the .agentkit/ overlay |

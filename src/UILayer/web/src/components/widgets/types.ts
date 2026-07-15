@@ -386,3 +386,25 @@ export interface ModelRoutingSummary {
   routingEvents: ModelRoutingEvent[];
   usageEvents: DocketUsageEvent[];
 }
+
+export interface CommandNexusRequest {
+  command: string;
+  context: string;
+  tenantId?: string;
+  userId?: string;
+  correlationId?: string;
+}
+
+export interface CommandNexusResponse {
+  correlationId: string;
+  context: string;
+  model: string;
+  response: string;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  latencyMs: number;
+  estimatedCostUsd: number;
+  docketStatus: string;
+  completedAt: string;
+}

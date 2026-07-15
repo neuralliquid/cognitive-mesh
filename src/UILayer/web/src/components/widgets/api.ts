@@ -52,6 +52,8 @@ import type {
   LearningCatalystRequest,
   LearningCatalystResponse,
   InnovationSpreadResult,
+  CommandNexusRequest,
+  CommandNexusResponse,
   ModelRoutingSummary,
 } from './types';
 
@@ -333,4 +335,11 @@ export async function getConvenerInnovationSpread(
 
 export async function getModelRoutingSummary(): Promise<ModelRoutingSummary> {
   return fetchJson('/api/v1/model-routing/summary', liveReadOptions);
+}
+
+export async function executeCommandNexus(request: CommandNexusRequest): Promise<CommandNexusResponse> {
+  return fetchJson('/api/v1/command-nexus/execute', {
+    method: 'POST',
+    body: JSON.stringify(request),
+  });
 }

@@ -366,6 +366,9 @@ resolved_blockers:
   - NeuralLiquid Cognitive Mesh Terraform state now manages the public DNS CNAME/TXT records for cognitive-mesh.neuralliquid.ai, control.cognitive-mesh.neuralliquid.ai, and api.cognitivemesh.neuralliquid.ai.
   - Full prod Terragrunt plan reported no changes after App Service reconciliation and DNS imports.
   - Docket-backed attribution path was re-smoked with synthetic correlation codex-docket-smoke-20260714233933; CogMesh accepted the event and Docket logs showed POST /usage/model-events returned 200 OK. Treat as technical readiness evidence, not real funding usage volume.
+  - Batch 4 evidence refresh on 2026-07-15 confirmed public routing/Docket surfaces currently show readiness or zero-token events; Docket logs prove ingestion works, but real CogMesh workload cost attribution is not yet funding-grade because sampled Sluice logs lack CogMesh attribution metadata.
+  - Batch 4 live smoke on 2026-07-15 corrected CogMesh from Sluice gateway-key to vkey-cognitive-mesh, verified a gpt-4o Sluice chat completion with correlation batch4-real-smoke-20260715145016, 68 total tokens, cognitive-mesh key alias metadata, response_cost 0.000275, and Docket POST /usage/model-events 200 OK. Gemini was preferred but no Gemini route is exposed to the CogMesh virtual key.
+  - Command Nexus route was implemented in ApiHost and wired from the Control UI. Local production-equivalent smoke correlation command-nexus-local-20260715165858 returned gpt-4o, 59 total tokens, estimated cost 0.0002675, docketStatus forwarded, and local ApiHost HTTP logs showed both Sluice chat completions and Docket usage ingestion returned 200.
 
 validation:
   local_searches:

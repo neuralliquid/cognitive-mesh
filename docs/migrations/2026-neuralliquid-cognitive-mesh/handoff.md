@@ -154,6 +154,15 @@ Current production behavior:
 - Docket canonical API URL is live at `https://docket.phoenixvc.tech`.
 - CogMesh-to-Docket usage ingestion is configured through `DOCKET_BASE_URL=https://docket.phoenixvc.tech` and `DOCKET_API_KEY`; the production smoke returned HTTP 202 through CogMesh and Docket logs showed HTTP 200 at `/usage/model-events`.
 - The Sluice health endpoint does not perform a live model call; it reports configuration/routing readiness and `liveProbeAttempted=false`.
+- Batch 4 evidence refresh on 2026-07-15 found that current public CogMesh model-routing and Docket usage surfaces expose readiness/zero-token events, not real production model-cost volume.
+- Azure Log Analytics confirmed Docket accepted recent `/usage/model-events` posts, but observed records align with smoke/readiness checks.
+- Sluice Log Analytics showed recent `/v1/embeddings` traffic, but sampled metadata did not contain a CogMesh key alias/project/team marker, so those logs cannot yet support CogMesh-specific cost-attribution claims.
+- Funding or public launch claims should say "routing and ingestion are technically wired and smoke-tested" until a real bounded CogMesh workflow produces attributed Sluice token/cost data that lands in Docket.
+- Follow-up smoke on 2026-07-15 found the configured `gateway-key` is not accepted by LiteLLM for model calls. Production CogMesh was corrected to use the Sluice `vkey-cognitive-mesh` virtual key value directly and `SLUICE_MODEL=gpt-4o`; prefer returning this to a Key Vault reference once the deployment path can pass the reference syntax reliably.
+- A bounded real Sluice chat-completion smoke with correlation `batch4-real-smoke-20260715145016` succeeded through the CogMesh virtual key on `gpt-4o` with 68 total tokens and LiteLLM `response_cost=0.000275`; no Gemini route is currently exposed to the CogMesh key.
+- The measured smoke usage was forwarded through CogMesh to Docket, and Docket logs showed `POST /usage/model-events` returned `200 OK` at `2026-07-15T12:50:56Z`.
+- Command Nexus now has a first-class ApiHost execution route at `POST /api/v1/command-nexus/execute`, wired from the Control UI. Local production-equivalent smoke correlation `command-nexus-local-20260715165858` returned `gpt-4o`, 59 total tokens, estimated cost `0.0002675`, `docketStatus=forwarded`, and local ApiHost HTTP logs showed both Sluice and Docket returned `200`.
+- Remaining evidence gap: deploy this endpoint and refresh workspace Log Analytics after ingestion so the Command Nexus route proof is production-hosted and independently visible in Sluice/Docket logs.
 
 ## Closeout Refresh - 2026-07-14
 
@@ -173,7 +182,7 @@ Current production behavior:
   - `COGMESH_SLUICE_BASE_URL=https://litellm.sluice.phoenixvc.tech`
   - `COGMESH_SLUICE_MODEL=default`
   - `COGMESH_SLUICE_MAX_TOKENS=16384`
-  - `COGMESH_SLUICE_API_KEY_SECRET_URI` pointing at the Sluice Key Vault `gateway-key` secret.
+  - `COGMESH_SLUICE_API_KEY_SECRET_URI` initially pointed at the Sluice Key Vault `gateway-key` secret. Superseded on 2026-07-15 by `vkey-cognitive-mesh`.
 - GitHub repo secrets now include:
   - `COGMESH_DOCKET_API_KEY`
 - The temporary direct `COGMESH_SLUICE_API_KEY` GitHub secret was removed after the Key Vault reference was configured.
