@@ -2,6 +2,11 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react"
 import { setAuthToken, clearAuthToken } from "@/lib/api/client"
+import {
+  completeMystiraRedirect,
+  signInWithMystira,
+  signOutOfMystira,
+} from "@/lib/auth/mystiraIdentity"
 
 interface User {
   id: string
@@ -19,6 +24,7 @@ interface AuthState {
 
 interface AuthContextValue extends AuthState {
   login: (email: string, password: string) => Promise<void>
+  loginWithMystira: (returnTo: string) => Promise<void>
   logout: () => void
   refreshToken: () => Promise<boolean>
 }
@@ -50,10 +56,10 @@ function extractUser(token: string): User | null {
   const payload = parseJwt(token)
   if (!payload) return null
   return {
-    id: (payload.sub as string) ?? "",
-    email: (payload.email as string) ?? "",
+    id: (payload.oid as string) ?? (payload.sub as string) ?? "",
+    email: (payload.email as string) ?? (payload.preferred_username as string) ?? (payload.upn as string) ?? "",
     name: (payload.name as string) ?? (payload.preferred_username as string) ?? "",
-    tenantId: (payload.tenant_id as string) ?? "",
+    tenantId: (payload.tid as string) ?? (payload.tenant_id as string) ?? "",
     roles: Array.isArray(payload.roles) ? payload.roles as string[] : [],
   }
 }
@@ -81,6 +87,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const refreshToken = useCallback(async (): Promise<boolean> => {
+    const mystiraToken = await completeMystiraRedirect().catch(() => null)
+    if (mystiraToken) {
+      return applyToken(mystiraToken)
+    }
+
     const stored = localStorage.getItem(REFRESH_TOKEN_KEY)
     if (!stored) return false
     try {
@@ -118,34 +129,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [applyToken],
   )
 
+  const loginWithMystira = useCallback(async (returnTo: string) => {
+    await signInWithMystira(returnTo)
+  }, [])
+
   const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY)
     localStorage.removeItem(REFRESH_TOKEN_KEY)
     document.cookie = "cm_access_token=; path=/; max-age=0"
     clearAuthToken()
     setState({ user: null, isAuthenticated: false, isLoading: false })
+    void signOutOfMystira()
   }, [])
 
   // Restore session on mount
   useEffect(() => {
-    const token = localStorage.getItem(TOKEN_KEY)
-    if (token && !isTokenExpired(token)) {
-      if (!applyToken(token)) {
-        setState({ user: null, isAuthenticated: false, isLoading: false })
-      }
-    } else if (token) {
-      // Token expired — try refresh
-      refreshToken().then((ok) => {
-        if (!ok) {
-          localStorage.removeItem(TOKEN_KEY)
-          localStorage.removeItem(REFRESH_TOKEN_KEY)
-          document.cookie = "cm_access_token=; path=/; max-age=0"
+    completeMystiraRedirect().then((mystiraToken) => {
+      if (mystiraToken && applyToken(mystiraToken)) return
+
+      const token = localStorage.getItem(TOKEN_KEY)
+      if (token && !isTokenExpired(token)) {
+        if (!applyToken(token)) {
           setState({ user: null, isAuthenticated: false, isLoading: false })
         }
-      })
-    } else {
+      } else if (token) {
+        // Token expired — try refresh
+        refreshToken().then((ok) => {
+          if (!ok) {
+            localStorage.removeItem(TOKEN_KEY)
+            localStorage.removeItem(REFRESH_TOKEN_KEY)
+            document.cookie = "cm_access_token=; path=/; max-age=0"
+            setState({ user: null, isAuthenticated: false, isLoading: false })
+          }
+        })
+      } else {
+        setState((prev) => ({ ...prev, isLoading: false }))
+      }
+    }).catch(() => {
       setState((prev) => ({ ...prev, isLoading: false }))
-    }
+    })
   }, [applyToken, refreshToken])
 
   // Proactive token refresh — reschedule on each new token
@@ -168,8 +190,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [state.isAuthenticated, state.user, refreshToken, logout])
 
   const value = useMemo<AuthContextValue>(
-    () => ({ ...state, login, logout, refreshToken }),
-    [state, login, logout, refreshToken],
+    () => ({ ...state, login, loginWithMystira, logout, refreshToken }),
+    [state, login, loginWithMystira, logout, refreshToken],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

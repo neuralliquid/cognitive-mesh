@@ -25,6 +25,7 @@
     <PackageReference Include="System.Text.Json"/>
     
     <!-- Project References -->
+    <ProjectReference Include="..\..\Shared\CognitiveMesh.Shared.csproj" />
     <ProjectReference Include="..\..\FoundationLayer\Security\Security.csproj" />
   </ItemGroup>
 

@@ -24,6 +24,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\Shared\CognitiveMesh.Shared.csproj" />
     <ProjectReference Include="..\..\FoundationLayer\Security\Security.csproj" />
     <ProjectReference Include="..\..\FoundationLayer\FoundationLayer.csproj" />
     <ProjectReference Include="..\..\FoundationLayer\EnterpriseConnectors\EnterpriseConnectors.csproj" />

@@ -26,7 +26,7 @@ This document provides an overview of the testing strategy and instructions for 
 ## Prerequisites
 
 - Node.js 16+
-- npm or yarn
+- pnpm
 - k6 (for performance testing)
 - Access to a running instance of the API
 
@@ -35,13 +35,13 @@ This document provides an overview of the testing strategy and instructions for 
 ### Install Dependencies
 
 ```bash
-npm install
+pnpm install
 ```
 
 ### Run Unit Tests
 
 ```bash
-npm test
+pnpm test
 ```
 
 ### Run Performance Tests
@@ -49,7 +49,7 @@ npm test
 Run all performance tests:
 
 ```bash
-npm run test:performance
+pnpm run test:performance
 ```
 
 Run specific test scenarios:

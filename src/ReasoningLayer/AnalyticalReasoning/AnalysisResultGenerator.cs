@@ -1,25 +1,23 @@
-using Azure.AI.OpenAI;
 using CognitiveMesh.ReasoningLayer.AnalyticalReasoning.Models;
-using OpenAI.Chat;
+using CognitiveMesh.Shared.Interfaces;
 
 namespace CognitiveMesh.ReasoningLayer.AnalyticalReasoning;
 
 /// <summary>
-/// Generates analytical results by invoking an OpenAI completion deployment
+/// Generates analytical results by invoking the configured LLM route
 /// with structured prompts for data-driven analysis.
 /// </summary>
 public class AnalysisResultGenerator
 {
-    private readonly ChatClient _chatClient;
+    private readonly ILLMClient _llmClient;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="AnalysisResultGenerator"/> class.
     /// </summary>
-    /// <param name="openAIClient">The Azure OpenAI client for generating completions.</param>
-    /// <param name="completionDeployment">The deployment name to use for completions.</param>
-    public AnalysisResultGenerator(AzureOpenAIClient openAIClient, string completionDeployment)
+    /// <param name="llmClient">The LLM client for generating completions.</param>
+    public AnalysisResultGenerator(ILLMClient llmClient)
     {
-        _chatClient = openAIClient.GetChatClient(completionDeployment);
+        _llmClient = llmClient ?? throw new ArgumentNullException(nameof(llmClient));
     }
 
     /// <summary>
@@ -30,21 +28,18 @@ public class AnalysisResultGenerator
         var systemPrompt = "You are an analytical system that performs data-driven analysis based on the provided query. " +
                            "Generate a detailed analysis report.";
 
-        var completion = await _chatClient.CompleteChatAsync(
+        var completion = await _llmClient.GenerateChatCompletionAsync(
             [
-                new SystemChatMessage(systemPrompt),
-                new UserChatMessage($"Data Query: {dataQuery}")
+                new ChatMessage("system", systemPrompt),
+                new ChatMessage("user", $"Data Query: {dataQuery}")
             ],
-            new ChatCompletionOptions
-            {
-                Temperature = 0.3f,
-                MaxOutputTokenCount = 800
-            });
+            0.3f,
+            800);
 
         return new AnalyticalResult
         {
             Query = dataQuery,
-            AnalysisReport = completion.Value.Content[0].Text
+            AnalysisReport = completion
         };
     }
 }

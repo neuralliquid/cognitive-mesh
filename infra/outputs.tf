@@ -18,125 +18,157 @@ output "resource_group_id" {
 
 output "vnet_id" {
   description = "The ID of the virtual network."
-  value       = module.networking.vnet_id
+  value       = try(module.networking[0].vnet_id, null)
 }
 
 output "subnet_ids" {
   description = "Map of subnet names to their IDs."
-  value       = module.networking.subnet_ids
+  value       = try(module.networking[0].subnet_ids, null)
 }
 
 # ---------- CosmosDB ----------
 
 output "cosmosdb_endpoint" {
   description = "The Cosmos DB account endpoint."
-  value       = module.cosmosdb.account_endpoint
+  value       = try(module.cosmosdb[0].account_endpoint, null)
 }
 
 output "cosmosdb_database_name" {
   description = "The Cosmos DB database name."
-  value       = module.cosmosdb.database_name
+  value       = try(module.cosmosdb[0].database_name, null)
 }
 
 # ---------- Storage ----------
 
 output "storage_account_name" {
   description = "The storage account name."
-  value       = module.storage.storage_account_name
+  value       = try(module.storage[0].storage_account_name, null)
 }
 
 output "storage_blob_endpoint" {
   description = "The primary blob endpoint."
-  value       = module.storage.primary_blob_endpoint
+  value       = try(module.storage[0].primary_blob_endpoint, null)
 }
 
 # ---------- Redis ----------
 
 output "redis_hostname" {
   description = "The Redis cache hostname."
-  value       = module.redis.hostname
+  value       = try(module.redis[0].hostname, null)
 }
 
 output "redis_ssl_port" {
   description = "The Redis cache SSL port."
-  value       = module.redis.ssl_port
+  value       = try(module.redis[0].ssl_port, null)
 }
 
 # ---------- Qdrant ----------
 
 output "qdrant_http_endpoint" {
   description = "The Qdrant REST API endpoint."
-  value       = module.qdrant.http_endpoint
+  value       = try(module.qdrant[0].http_endpoint, null)
 }
 
 output "qdrant_grpc_endpoint" {
   description = "The Qdrant gRPC endpoint."
-  value       = module.qdrant.grpc_endpoint
+  value       = try(module.qdrant[0].grpc_endpoint, null)
 }
 
 # ---------- Azure OpenAI ----------
 
 output "openai_endpoint" {
   description = "The Azure OpenAI endpoint."
-  value       = module.openai.endpoint
+  value       = try(module.openai[0].endpoint, null)
 }
 
 output "openai_deployment_ids" {
   description = "Map of OpenAI deployment names to IDs."
-  value       = module.openai.deployment_ids
+  value       = try(module.openai[0].deployment_ids, null)
 }
 
 # ---------- AI Search ----------
 
 output "search_service_name" {
   description = "The AI Search service name."
-  value       = module.ai_search.search_service_name
+  value       = try(module.ai_search[0].search_service_name, null)
 }
 
 # ---------- Key Vault ----------
 
 output "key_vault_uri" {
   description = "The Key Vault URI."
-  value       = module.keyvault.key_vault_uri
+  value       = try(module.keyvault[0].key_vault_uri, null)
 }
 
 output "key_vault_name" {
   description = "The Key Vault name."
-  value       = module.keyvault.key_vault_name
+  value       = try(module.keyvault[0].key_vault_name, null)
 }
 
 # ---------- Monitoring ----------
 
 output "application_insights_connection_string" {
   description = "The Application Insights connection string."
-  value       = module.monitoring.application_insights_connection_string
+  value       = try(module.monitoring[0].application_insights_connection_string, null)
   sensitive   = true
 }
 
 output "application_insights_instrumentation_key" {
   description = "The Application Insights instrumentation key."
-  value       = module.monitoring.application_insights_instrumentation_key
+  value       = try(module.monitoring[0].application_insights_instrumentation_key, null)
   sensitive   = true
 }
 
 output "log_analytics_workspace_id" {
   description = "The Log Analytics Workspace ID."
-  value       = module.monitoring.log_analytics_workspace_id
+  value       = try(module.monitoring[0].log_analytics_workspace_id, null)
 }
 
 # ---------- Frontend Hosting ----------
 
 output "frontend_app_service_url" {
   description = "The default URL of the frontend App Service."
-  value       = module.frontend_hosting.app_service_url
+  value       = try(module.frontend_hosting[0].app_service_url, "https://${module.webapps[0].frontend_default_hostname}", null)
 }
 
 output "frontend_app_service_id" {
   description = "The ID of the frontend App Service."
-  value       = module.frontend_hosting.app_service_id
+  value       = try(module.frontend_hosting[0].app_service_id, module.webapps[0].frontend_app_service_id, null)
 }
 
 output "frontend_app_service_name" {
   description = "The name of the frontend App Service."
-  value       = module.frontend_hosting.app_service_name
+  value       = try(module.frontend_hosting[0].app_service_name, module.webapps[0].frontend_app_service_name, null)
+}
+
+# ---------- Container Web Apps ----------
+
+output "api_app_service_name" {
+  description = "The API App Service name."
+  value       = try(module.webapps[0].api_app_service_name, null)
+}
+
+output "api_app_service_id" {
+  description = "The API App Service ID."
+  value       = try(module.webapps[0].api_app_service_id, null)
+}
+
+output "api_default_hostname" {
+  description = "The API App Service default hostname."
+  value       = try(module.webapps[0].api_default_hostname, null)
+}
+
+output "api_staging_slot_name" {
+  description = "The API staging slot name."
+  value       = try(module.webapps[0].api_staging_slot_name, null)
+}
+
+output "frontend_default_hostname" {
+  description = "The frontend App Service default hostname."
+  value       = try(module.webapps[0].frontend_default_hostname, null)
+}
+
+output "frontend_staging_slot_name" {
+  description = "The frontend staging slot name."
+  value       = try(module.webapps[0].frontend_staging_slot_name, null)
 }

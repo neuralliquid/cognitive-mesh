@@ -1,8 +1,14 @@
 using AgencyLayer.CognitiveSandwich.Infrastructure;
+using Azure.Core;
+using Azure.Identity;
 using CognitiveMesh.AgencyLayer.RealTime.Infrastructure;
 using CognitiveMesh.BusinessApplications.AdaptiveBalance.Infrastructure;
 using CognitiveMesh.BusinessApplications.ImpactMetrics.Infrastructure;
 using CognitiveMesh.BusinessApplications.NISTCompliance.Infrastructure;
+using System.Collections.Concurrent;
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
+using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -27,6 +33,8 @@ builder.Services.AddNISTComplianceServices();
 builder.Services.AddCognitiveSandwichServices();
 builder.Services.AddImpactMetricsServices();
 builder.Services.AddCognitiveMeshRealTime();
+builder.Services.AddSingleton<ModelRoutingTelemetryStore>();
+builder.Services.AddHttpClient<IDocketUsageRecorder, DocketUsageRecorder>();
 
 // CORS — allow the Next.js frontend during development
 builder.Services.AddCors(options =>
@@ -61,7 +69,507 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors("Frontend");
 
+app.MapGet("/healthz", () => Results.Ok(new { status = "ok" }));
+app.MapGet("/api/v1/dashboard/layers", () => Results.Ok(new[]
+{
+    new
+    {
+        id = "foundation",
+        name = "Foundation",
+        icon = "database",
+        color = "cyan",
+        uptime = 99.9,
+        description = "Core data, search, memory and infrastructure services"
+    },
+    new
+    {
+        id = "reasoning",
+        name = "Reasoning",
+        icon = "brain",
+        color = "violet",
+        uptime = 99.7,
+        description = "Analytical, ethical, domain and systems reasoning services"
+    },
+    new
+    {
+        id = "metacognitive",
+        name = "Metacognitive",
+        icon = "activity",
+        color = "emerald",
+        uptime = 99.5,
+        description = "Evaluation, learning, monitoring and governance services"
+    },
+    new
+    {
+        id = "agency",
+        name = "Agency",
+        icon = "workflow",
+        color = "amber",
+        uptime = 99.4,
+        description = "Agent orchestration, collaboration and execution services"
+    }
+}));
+app.MapGet("/api/v1/dashboard/metrics", () => Results.Ok(new[]
+{
+    new
+    {
+        id = "active-agents",
+        label = "Active agents",
+        value = "12",
+        change = "+3",
+        status = "up",
+        energy = 82,
+        icon = "bot"
+    },
+    new
+    {
+        id = "governance-score",
+        label = "Governance score",
+        value = "94%",
+        change = "+2%",
+        status = "up",
+        energy = 88,
+        icon = "shield"
+    },
+    new
+    {
+        id = "reasoning-load",
+        label = "Reasoning load",
+        value = "41%",
+        change = "stable",
+        status = "stable",
+        energy = 57,
+        icon = "cpu"
+    },
+    new
+    {
+        id = "sla-health",
+        label = "SLA health",
+        value = "99.6%",
+        change = "-0.1%",
+        status = "stable",
+        energy = 76,
+        icon = "gauge"
+    }
+}));
+app.MapGet("/api/v1/dashboard/status", () => Results.Ok(new
+{
+    power = 87,
+    load = 41,
+    neuralNetwork = true,
+    quantumProcessing = false
+}));
+app.MapGet("/api/v1/dashboard/activities", () => Results.Ok(new[]
+{
+    new
+    {
+        time = DateTimeOffset.UtcNow.AddMinutes(-5).ToString("O"),
+        @event = "Dashboard API health snapshot refreshed",
+        type = "system"
+    },
+    new
+    {
+        time = DateTimeOffset.UtcNow.AddMinutes(-17).ToString("O"),
+        @event = "Sluice model routing verification completed",
+        type = "model-routing"
+    },
+    new
+    {
+        time = DateTimeOffset.UtcNow.AddMinutes(-42).ToString("O"),
+        @event = "Governance telemetry heartbeat received",
+        type = "governance"
+    }
+}));
+app.MapGet("/api/v1/model-routing/status", (IConfiguration configuration, ModelRoutingTelemetryStore telemetry, IDocketUsageRecorder docket) =>
+{
+    var status = ModelRoutingStatus.FromConfiguration(configuration, telemetry.GetRecent(5), docket.GetRecent(5));
+    return Results.Ok(status);
+});
+app.MapGet("/api/v1/model-routing/events", (ModelRoutingTelemetryStore telemetry) => Results.Ok(telemetry.GetRecent(25)));
+app.MapGet("/api/v1/model-routing/summary", (IConfiguration configuration, ModelRoutingTelemetryStore telemetry, IDocketUsageRecorder docket) =>
+{
+    var routingEvents = telemetry.GetRecent(10);
+    var usageEvents = docket.GetRecent(10);
+    return Results.Ok(new ModelRoutingSummary(
+        ModelRoutingStatus.FromConfiguration(configuration, routingEvents, usageEvents),
+        routingEvents,
+        usageEvents));
+});
+app.MapGet("/api/v1/sluice/health", (IConfiguration configuration, ModelRoutingTelemetryStore telemetry, IDocketUsageRecorder docket) =>
+{
+    var routingEvents = telemetry.GetRecent(5);
+    var usageEvents = docket.GetRecent(5);
+    return Results.Ok(new SluiceHealthResponse(
+        ModelRoutingStatus.FromConfiguration(configuration, routingEvents, usageEvents),
+        false,
+        "ApiHost reports Sluice configuration and routing readiness; no live model call is attempted by this health endpoint."));
+});
+app.MapGet("/api/v1/sluice/routing-telemetry", (int? limit, ModelRoutingTelemetryStore telemetry) =>
+{
+    return Results.Ok(new SluiceRoutingTelemetryResponse(
+        false,
+        telemetry.GetRecent(limit.GetValueOrDefault(25))));
+});
+app.MapGet("/api/v1/docket/usage/recent", (IDocketUsageRecorder docket) => Results.Ok(docket.GetRecent(25)));
+app.MapPost("/api/v1/docket/usage", (DocketUsageEvent usageEvent, IDocketUsageRecorder docket) =>
+{
+    var recorded = docket.Record(usageEvent);
+    return Results.Accepted($"/api/v1/docket/usage/{recorded.CorrelationId}", recorded);
+});
 app.MapControllers();
 app.MapCognitiveMeshHubs();
 
 app.Run();
+
+internal sealed class ModelRoutingTelemetryStore
+{
+    private readonly ConcurrentQueue<ModelRoutingEvent> _events = new();
+
+    public ModelRoutingTelemetryStore(IConfiguration configuration)
+    {
+        var route = configuration["Sluice:Model"]
+            ?? configuration["SLUICE_MODEL"]
+            ?? "default";
+
+        Record(new ModelRoutingEvent(
+            Guid.NewGuid().ToString(),
+            "sluice",
+            route,
+            "verified",
+            "ApiHost startup verified Sluice routing configuration snapshot.",
+            DateTimeOffset.UtcNow,
+            0,
+            null,
+            "not_applicable"));
+    }
+
+    public void Record(ModelRoutingEvent routingEvent)
+    {
+        _events.Enqueue(routingEvent);
+        while (_events.Count > 100 && _events.TryDequeue(out _))
+        {
+        }
+    }
+
+    public IReadOnlyList<ModelRoutingEvent> GetRecent(int maxResults)
+    {
+        return _events
+            .Reverse()
+            .Take(Math.Clamp(maxResults, 1, 100))
+            .ToArray();
+    }
+}
+
+internal interface IDocketUsageRecorder
+{
+    DocketUsageEvent Record(DocketUsageEvent usageEvent);
+    IReadOnlyList<DocketUsageEvent> GetRecent(int maxResults);
+}
+
+internal sealed class DocketUsageRecorder : IDocketUsageRecorder
+{
+    private readonly ConcurrentQueue<DocketUsageEvent> _events = new();
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private readonly HttpClient _httpClient;
+    private readonly IConfiguration _configuration;
+    private readonly ILogger<DocketUsageRecorder> _logger;
+    private readonly TokenCredential _credential;
+
+    public DocketUsageRecorder(
+        HttpClient httpClient,
+        IConfiguration configuration,
+        ILogger<DocketUsageRecorder> logger)
+    {
+        _httpClient = httpClient;
+        _configuration = configuration;
+        _logger = logger;
+        _credential = CreateCredential(configuration);
+
+        var model = configuration["Sluice:Model"]
+            ?? configuration["SLUICE_MODEL"]
+            ?? "default";
+
+        Enqueue(Normalize(new DocketUsageEvent(
+            Guid.NewGuid().ToString(),
+            "demo-tenant",
+            null,
+            "ApiHost",
+            "sluice",
+            model,
+            0,
+            0,
+            0,
+            0,
+            0,
+            "allowed",
+            "recorded",
+            DateTimeOffset.UtcNow)));
+    }
+
+    public DocketUsageEvent Record(DocketUsageEvent usageEvent)
+    {
+        var normalized = Normalize(usageEvent);
+        Enqueue(normalized);
+        _ = ForwardUsageAsync(normalized, CancellationToken.None);
+        return normalized;
+    }
+
+    private void Enqueue(DocketUsageEvent normalized)
+    {
+        _events.Enqueue(normalized);
+        while (_events.Count > 250 && _events.TryDequeue(out _))
+        {
+        }
+    }
+
+    public IReadOnlyList<DocketUsageEvent> GetRecent(int maxResults)
+    {
+        return _events
+            .Reverse()
+            .Take(Math.Clamp(maxResults, 1, 100))
+            .ToArray();
+    }
+
+    private static DocketUsageEvent Normalize(DocketUsageEvent usageEvent)
+    {
+        var promptTokens = Math.Max(0, usageEvent.PromptTokens);
+        var completionTokens = Math.Max(0, usageEvent.CompletionTokens);
+
+        return usageEvent with
+        {
+            CorrelationId = string.IsNullOrWhiteSpace(usageEvent.CorrelationId)
+                ? Guid.NewGuid().ToString()
+                : usageEvent.CorrelationId,
+            Source = string.IsNullOrWhiteSpace(usageEvent.Source)
+                ? "CognitiveMesh"
+                : usageEvent.Source,
+            Provider = string.IsNullOrWhiteSpace(usageEvent.Provider)
+                ? "sluice"
+                : usageEvent.Provider,
+            Model = string.IsNullOrWhiteSpace(usageEvent.Model) ? "default" : usageEvent.Model,
+            Status = string.IsNullOrWhiteSpace(usageEvent.Status) ? "recorded" : usageEvent.Status,
+            PolicyOutcome = string.IsNullOrWhiteSpace(usageEvent.PolicyOutcome)
+                ? "unknown"
+                : usageEvent.PolicyOutcome,
+            OccurredAt = usageEvent.OccurredAt == default
+                ? DateTimeOffset.UtcNow
+                : usageEvent.OccurredAt,
+            PromptTokens = promptTokens,
+            CompletionTokens = completionTokens,
+            TotalTokens = usageEvent.TotalTokens > 0
+                ? usageEvent.TotalTokens
+                : promptTokens + completionTokens,
+            EstimatedCostUsd = Math.Max(0, usageEvent.EstimatedCostUsd)
+        };
+    }
+
+    private async Task ForwardUsageAsync(
+        DocketUsageEvent usageEvent,
+        CancellationToken cancellationToken)
+    {
+        var baseUrl = _configuration["Docket:BaseUrl"]
+            ?? _configuration["DOCKET_BASE_URL"]
+            ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(baseUrl))
+        {
+            return;
+        }
+
+        try
+        {
+            using var request = new HttpRequestMessage(
+                HttpMethod.Post,
+                new Uri(new Uri(baseUrl.TrimEnd('/') + "/"), "usage/model-events"));
+
+            await AddAuthenticationAsync(request, cancellationToken).ConfigureAwait(false);
+            request.Content = JsonContent.Create(ToDocketPayload(usageEvent), options: JsonOptions);
+
+            using var response = await _httpClient
+                .SendAsync(request, cancellationToken)
+                .ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning(
+                    "Docket usage ingestion returned {StatusCode} for correlation {CorrelationId}",
+                    (int)response.StatusCode,
+                    usageEvent.CorrelationId);
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(
+                ex,
+                "Docket usage ingestion failed for correlation {CorrelationId}",
+                usageEvent.CorrelationId);
+        }
+    }
+
+    private async Task AddAuthenticationAsync(
+        HttpRequestMessage request,
+        CancellationToken cancellationToken)
+    {
+        var apiKey = _configuration["Docket:ApiKey"] ?? _configuration["DOCKET_API_KEY"];
+        if (!string.IsNullOrWhiteSpace(apiKey))
+        {
+            request.Headers.Add("X-API-Key", apiKey);
+            return;
+        }
+
+        var staticBearer = _configuration["Docket:BearerToken"]
+            ?? _configuration["DOCKET_BEARER_TOKEN"];
+        if (!string.IsNullOrWhiteSpace(staticBearer))
+        {
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", staticBearer);
+            return;
+        }
+
+        var scope = _configuration["Docket:Scope"] ?? _configuration["DOCKET_SCOPE"];
+        var audience = _configuration["Docket:Audience"] ?? _configuration["DOCKET_AUDIENCE"];
+        if (string.IsNullOrWhiteSpace(scope) && !string.IsNullOrWhiteSpace(audience))
+        {
+            scope = audience.TrimEnd('/') + "/.default";
+        }
+
+        if (string.IsNullOrWhiteSpace(scope))
+        {
+            return;
+        }
+
+        var token = await _credential
+            .GetTokenAsync(new TokenRequestContext([scope]), cancellationToken)
+            .ConfigureAwait(false);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Token);
+    }
+
+    private static object ToDocketPayload(DocketUsageEvent usageEvent)
+    {
+        return new
+        {
+            correlationId = usageEvent.CorrelationId,
+            source = usageEvent.Source,
+            provider = usageEvent.Provider,
+            model = usageEvent.Model,
+            promptTokens = usageEvent.PromptTokens,
+            completionTokens = usageEvent.CompletionTokens,
+            totalTokens = usageEvent.TotalTokens,
+            estimatedCostUsd = usageEvent.EstimatedCostUsd,
+            status = usageEvent.Status,
+            policyOutcome = usageEvent.PolicyOutcome,
+            occurredAt = usageEvent.OccurredAt
+        };
+    }
+
+    private static TokenCredential CreateCredential(IConfiguration configuration)
+    {
+        var managedIdentityClientId = configuration["Docket:ManagedIdentityClientId"]
+            ?? configuration["DOCKET_MANAGED_IDENTITY_CLIENT_ID"]
+            ?? configuration["AZURE_CLIENT_ID"];
+
+        return string.IsNullOrWhiteSpace(managedIdentityClientId)
+            ? new DefaultAzureCredential()
+            : new DefaultAzureCredential(new DefaultAzureCredentialOptions
+            {
+                ManagedIdentityClientId = managedIdentityClientId
+            });
+    }
+}
+
+internal sealed record ModelRoutingStatus(
+    string Status,
+    string Provider,
+    string Route,
+    string BaseUrl,
+    bool SluiceConfigured,
+    bool DirectProviderFallbackAllowed,
+    bool DocketConfigured,
+    string DocketMode,
+    DateTimeOffset CheckedAt,
+    string CorrelationId,
+    int RecentRoutingEventCount,
+    int RecentUsageEventCount)
+{
+    public static ModelRoutingStatus FromConfiguration(
+        IConfiguration configuration,
+        IReadOnlyList<ModelRoutingEvent> routingEvents,
+        IReadOnlyList<DocketUsageEvent> usageEvents)
+    {
+        var baseUrl = configuration["Sluice:BaseUrl"]
+            ?? configuration["SLUICE_BASE_URL"]
+            ?? string.Empty;
+        var route = configuration["Sluice:Model"]
+            ?? configuration["SLUICE_MODEL"]
+            ?? "default";
+        var directFallback = string.Equals(
+            Environment.GetEnvironmentVariable("ALLOW_DIRECT_MODEL_PROVIDER"),
+            "true",
+            StringComparison.OrdinalIgnoreCase);
+        var docketBaseUrl = configuration["Docket:BaseUrl"]
+            ?? configuration["DOCKET_BASE_URL"]
+            ?? string.Empty;
+        var docketAuthConfigured =
+            !string.IsNullOrWhiteSpace(configuration["Docket:ApiKey"] ?? configuration["DOCKET_API_KEY"])
+            || !string.IsNullOrWhiteSpace(configuration["Docket:BearerToken"] ?? configuration["DOCKET_BEARER_TOKEN"])
+            || !string.IsNullOrWhiteSpace(configuration["Docket:Scope"] ?? configuration["DOCKET_SCOPE"])
+            || !string.IsNullOrWhiteSpace(configuration["Docket:Audience"] ?? configuration["DOCKET_AUDIENCE"]);
+        var docketConfigured = !string.IsNullOrWhiteSpace(docketBaseUrl);
+        var docketMode = docketConfigured
+            ? docketAuthConfigured ? "external-auth-configured" : "external-auth-missing"
+            : "in-memory";
+
+        var configured = !string.IsNullOrWhiteSpace(baseUrl);
+        return new ModelRoutingStatus(
+            configured ? "configured" : "configuration_missing",
+            "sluice",
+            route,
+            configured ? baseUrl : "not configured",
+            configured,
+            directFallback,
+            docketConfigured,
+            docketMode,
+            DateTimeOffset.UtcNow,
+            Guid.NewGuid().ToString(),
+            routingEvents.Count,
+            usageEvents.Count);
+    }
+}
+
+internal sealed record ModelRoutingSummary(
+    ModelRoutingStatus Status,
+    IReadOnlyList<ModelRoutingEvent> RoutingEvents,
+    IReadOnlyList<DocketUsageEvent> UsageEvents);
+
+internal sealed record SluiceHealthResponse(
+    ModelRoutingStatus Status,
+    bool LiveProbeAttempted,
+    string Message);
+
+internal sealed record SluiceRoutingTelemetryResponse(
+    bool LiveTelemetryAttempted,
+    IReadOnlyList<ModelRoutingEvent> Events);
+
+internal sealed record ModelRoutingEvent(
+    string CorrelationId,
+    string Provider,
+    string Route,
+    string Status,
+    string Message,
+    DateTimeOffset OccurredAt,
+    long LatencyMs,
+    int? TotalTokens,
+    string PolicyOutcome);
+
+internal sealed record DocketUsageEvent(
+    string CorrelationId,
+    string TenantId,
+    string? UserId,
+    string Source,
+    string Provider,
+    string Model,
+    int PromptTokens,
+    int CompletionTokens,
+    int TotalTokens,
+    long LatencyMs,
+    decimal EstimatedCostUsd,
+    string PolicyOutcome,
+    string Status,
+    DateTimeOffset OccurredAt);

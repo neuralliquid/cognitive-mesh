@@ -4,24 +4,30 @@ export interface NavItem {
   icon: string
   section: string
   badge?: string
+  preview?: boolean
 }
 
-export const navItems: NavItem[] = [
+const allNavItems: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: "LayoutDashboard", section: "Core" },
-  { label: "Agents", href: "/agents", icon: "Bot", section: "Core" },
+  { label: "Agents", href: "/agents", icon: "Bot", section: "Core", badge: "Preview", preview: true },
   { label: "Analytics", href: "/analytics", icon: "BarChart3", section: "Core" },
-  { label: "Context Engineering", href: "/context-engineering", icon: "Braces", section: "Core" },
+  { label: "Context Engineering", href: "/context-engineering", icon: "Braces", section: "Core", badge: "Preview", preview: true },
   { label: "Compliance", href: "/compliance", icon: "ShieldCheck", section: "Governance" },
   { label: "Balance", href: "/balance", icon: "Scale", section: "Governance" },
-  { label: "Value", href: "/value", icon: "TrendingUp", section: "Governance" },
+  { label: "Value", href: "/value", icon: "TrendingUp", section: "Governance", badge: "Preview", preview: true },
   { label: "Impact", href: "/impact", icon: "Activity", section: "Governance" },
-  { label: "Sandwich", href: "/sandwich", icon: "Layers", section: "Governance" },
-  { label: "Convener", href: "/convener", icon: "Users", section: "Governance" },
-  { label: "Org Mesh", href: "/org-mesh", icon: "Network", section: "Governance" },
-  { label: "Marketplace", href: "/marketplace", icon: "Store", section: "Governance" },
+  { label: "Sandwich", href: "/sandwich", icon: "Layers", section: "Governance", badge: "Preview", preview: true },
+  { label: "Convener", href: "/convener", icon: "Users", section: "Governance", badge: "Preview", preview: true },
+  { label: "Org Mesh", href: "/org-mesh", icon: "Network", section: "Governance", badge: "Preview", preview: true },
+  { label: "Marketplace", href: "/marketplace", icon: "Store", section: "Governance", badge: "Preview", preview: true },
   { label: "Settings", href: "/settings", icon: "Settings", section: "System" },
   { label: "Profile", href: "/profile", icon: "User", section: "System" },
 ]
+
+export const navItems: NavItem[] =
+  process.env.NEXT_PUBLIC_SHOW_PREVIEW_NAV === "true"
+    ? allNavItems
+    : allNavItems.filter((item) => !item.preview)
 
 export const sectionOrder = ["Core", "Governance", "System"]
 

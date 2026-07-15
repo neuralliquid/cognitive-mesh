@@ -16,6 +16,13 @@ function isJwtExpired(token: string): boolean {
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
+  const host = request.headers.get("host")?.split(":")[0].toLowerCase()
+
+  if (host === "control.cognitive-mesh.neuralliquid.ai" && pathname === "/") {
+    const controlUrl = request.nextUrl.clone()
+    controlUrl.pathname = "/control"
+    return NextResponse.redirect(controlUrl)
+  }
 
   // Allow public paths and Next.js internals
   if (

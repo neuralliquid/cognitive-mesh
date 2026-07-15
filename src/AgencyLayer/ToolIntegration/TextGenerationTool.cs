@@ -1,30 +1,30 @@
 using Microsoft.Extensions.Logging;
-using OpenAI.Chat;
+using CognitiveMesh.Shared.Interfaces;
 
 namespace AgencyLayer.ToolIntegration
 {
     /// <summary>
-    /// A tool that generates text using Azure OpenAI's ChatClient (v2 stable API).
+    /// A tool that generates text using the configured LLM route.
     /// </summary>
     public class TextGenerationTool : BaseTool
     {
-        private readonly ChatClient _chatClient;
+        private readonly ILLMClient _llmClient;
 
         /// <inheritdoc />
         public override string Name => "Text Generation Tool";
 
         /// <inheritdoc />
-        public override string Description => "Generates text based on the provided prompt using Azure OpenAI.";
+        public override string Description => "Generates text based on the provided prompt using the configured LLM route.";
 
         /// <summary>
         /// Initializes a new instance of the <see cref="TextGenerationTool"/> class.
         /// </summary>
-        /// <param name="chatClient">The OpenAI ChatClient used for completions.</param>
+        /// <param name="llmClient">The LLM client used for completions.</param>
         /// <param name="logger">The logger instance.</param>
-        public TextGenerationTool(ChatClient chatClient, ILogger<TextGenerationTool> logger)
+        public TextGenerationTool(ILLMClient llmClient, ILogger<TextGenerationTool> logger)
             : base(logger)
         {
-            _chatClient = chatClient ?? throw new ArgumentNullException(nameof(chatClient));
+            _llmClient = llmClient ?? throw new ArgumentNullException(nameof(llmClient));
         }
 
         /// <summary>
@@ -49,12 +49,10 @@ namespace AgencyLayer.ToolIntegration
             {
                 var messages = new List<ChatMessage>
                 {
-                    new UserChatMessage(prompt)
+                    new("user", prompt)
                 };
 
-                ChatCompletion completion = await _chatClient.CompleteChatAsync(messages);
-
-                var result = completion.Content[0].Text;
+                var result = await _llmClient.GenerateChatCompletionAsync(messages);
 
                 _logger.LogInformation("Text generation executed successfully for prompt: {Prompt}", prompt);
 

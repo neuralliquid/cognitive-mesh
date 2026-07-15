@@ -10,24 +10,30 @@
 # ---------------------------------------------------------------------------
 # Stage 1: Install dependencies
 # ---------------------------------------------------------------------------
-FROM node:22.22.1-alpine AS deps
+FROM node:22.23.1-alpine AS deps
 WORKDIR /app
 
 # Copy package manifests for layer caching
-COPY package.json package-lock.json ./
+COPY package.json pnpm-lock.yaml ./
 
-# Install dependencies (--legacy-peer-deps required per project conventions)
-RUN npm ci --legacy-peer-deps
+# Install dependencies
+RUN corepack enable && pnpm install --frozen-lockfile
 
 # ---------------------------------------------------------------------------
 # Stage 2: Build the Next.js application
 # ---------------------------------------------------------------------------
-FROM node:22.22.1-alpine AS builder
+FROM node:22.23.1-alpine AS builder
 WORKDIR /app
 
 # Build-time environment variables
 ARG NEXT_PUBLIC_API_BASE_URL
+ARG NEXT_PUBLIC_MYSTIRA_AUTH_CLIENT_ID
+ARG NEXT_PUBLIC_MYSTIRA_TENANT_ID
+ARG NEXT_PUBLIC_SHOW_PREVIEW_NAV
 ENV NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
+ENV NEXT_PUBLIC_MYSTIRA_AUTH_CLIENT_ID=${NEXT_PUBLIC_MYSTIRA_AUTH_CLIENT_ID}
+ENV NEXT_PUBLIC_MYSTIRA_TENANT_ID=${NEXT_PUBLIC_MYSTIRA_TENANT_ID}
+ENV NEXT_PUBLIC_SHOW_PREVIEW_NAV=${NEXT_PUBLIC_SHOW_PREVIEW_NAV}
 
 # Copy deps from previous stage
 COPY --from=deps /app/node_modules ./node_modules
@@ -36,12 +42,12 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 # Build the application (standalone output configured in next.config.js)
-RUN npm run build
+RUN corepack enable && pnpm run build
 
 # ---------------------------------------------------------------------------
 # Stage 3: Production runtime
 # ---------------------------------------------------------------------------
-FROM node:22.22.1-alpine AS runner
+FROM node:22.23.1-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production

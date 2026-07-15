@@ -41,9 +41,10 @@ export interface NISTRoadmapResponse {
 
 export interface NISTChecklistStatement {
   statementId: string;
-  text: string;
-  status: string;
+  description: string;
+  isComplete: boolean;
   evidenceCount: number;
+  currentScore: number | null;
 }
 
 export interface NISTChecklistPillar {
@@ -68,7 +69,9 @@ export interface NISTAuditEntry {
 }
 
 export interface NISTAuditLogResponse {
+  organizationId: string;
   entries: NISTAuditEntry[];
+  totalCount: number;
 }
 
 // ──────────────────────────── Adaptive Balance ──────────────────────────────
@@ -147,6 +150,26 @@ export interface PsychologicalSafetyScore {
   confidenceLevel: string;
 }
 
+export type AdoptionAction =
+  | 'Login'
+  | 'FeatureUse'
+  | 'FeatureIgnore'
+  | 'Feedback'
+  | 'Override'
+  | 'HelpRequest'
+  | 'WorkflowComplete';
+
+export interface AdoptionTelemetry {
+  telemetryId: string;
+  userId: string;
+  tenantId: string;
+  toolId: string;
+  action: AdoptionAction;
+  timestamp: string;
+  durationMs: number | null;
+  context: string | null;
+}
+
 export interface ImpactReport {
   reportId: string;
   tenantId: string;
@@ -161,11 +184,11 @@ export interface ImpactReport {
 }
 
 export interface ResistanceIndicator {
-  indicatorId: string;
-  pattern: string;
-  severity: string;
-  affectedUsers: number;
-  detectedAt: string;
+  indicatorType: string;
+  severity: number;
+  affectedUserCount: number;
+  firstDetectedAt: string;
+  description: string;
 }
 
 export interface ImpactAssessment {
@@ -221,4 +244,145 @@ export interface CognitiveDebtAssessment {
   isBreached: boolean;
   recommendations: string[];
   assessedAt: string;
+}
+
+// ─────────────────────────────── Convener ──────────────────────────────────
+
+export interface ChampionSummary {
+  userId: string;
+  influenceScore: number;
+  skills: string[];
+  interactionCount: number;
+  lastActiveDate: string;
+}
+
+export interface DiscoverChampionsResponse {
+  champions: ChampionSummary[];
+  totalEvaluated: number;
+}
+
+export interface EngagementMetrics {
+  totalMessages: number;
+  activeUsers: number;
+  totalReactions: number;
+  engagementTrend: string;
+}
+
+export interface SentimentMetrics {
+  averageSentiment: number;
+  positiveRatio: number;
+  negativeRatio: number;
+  neutralRatio: number;
+}
+
+export interface PsychologicalSafetyMetrics {
+  safetyScore: number;
+  riskLevel: string;
+}
+
+export interface CommunityPulseResponse {
+  channelId: string;
+  startDate: string;
+  endDate: string;
+  engagement?: EngagementMetrics | null;
+  sentiment?: SentimentMetrics | null;
+  psychologicalSafety?: PsychologicalSafetyMetrics | null;
+}
+
+export interface LearningCatalystRequest {
+  focusAreas?: string[];
+  maxRecommendations?: number;
+}
+
+export interface LearningRecommendation {
+  title: string;
+  description: string;
+  activityType: string | number;
+  relevanceScore: number;
+  targetSkill: string;
+  estimatedMinutes: number;
+  contributorUserId?: string | null;
+}
+
+export interface SkillGap {
+  skillName: string;
+  currentLevel: number;
+  targetLevel: number;
+  priority: string;
+}
+
+export interface LearningCatalystResponse {
+  userId: string;
+  recommendations: LearningRecommendation[];
+  identifiedGaps: SkillGap[];
+}
+
+export interface AdoptionEvent {
+  adopterUserId: string;
+  adoptedAt: string;
+  referredByUserId?: string | null;
+  adoptionContext?: string | null;
+}
+
+export interface InnovationSpreadResult {
+  ideaId: string;
+  originatorUserId: string;
+  proposedAt: string;
+  adoptionCount: number;
+  adoptionRatePercent: number;
+  viralityScore: number;
+  adoptionLineage: AdoptionEvent[];
+  phase: string | number;
+}
+
+// ───────────────────────── Model Routing & Docket ──────────────────────────
+
+export interface ModelRoutingStatus {
+  status: string;
+  provider: string;
+  route: string;
+  baseUrl: string;
+  sluiceConfigured: boolean;
+  directProviderFallbackAllowed: boolean;
+  docketConfigured: boolean;
+  docketMode: string;
+  checkedAt: string;
+  correlationId: string;
+  recentRoutingEventCount: number;
+  recentUsageEventCount: number;
+}
+
+export interface ModelRoutingEvent {
+  correlationId: string;
+  provider: string;
+  route: string;
+  status: string;
+  message: string;
+  occurredAt: string;
+  latencyMs: number;
+  totalTokens: number | null;
+  policyOutcome: string;
+}
+
+export interface DocketUsageEvent {
+  correlationId: string;
+  tenantId: string;
+  userId: string | null;
+  source: string;
+  provider: string;
+  model: string;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  latencyMs: number;
+  estimatedCostUsd: number;
+  policyOutcome: string;
+  status: string;
+  occurredAt: string;
+}
+
+export interface ModelRoutingSummary {
+  status: ModelRoutingStatus;
+  routingEvents: ModelRoutingEvent[];
+  usageEvents: DocketUsageEvent[];
 }

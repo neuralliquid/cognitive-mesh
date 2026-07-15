@@ -20,6 +20,8 @@ import {
   TrendingUp,
   Activity,
   Layers,
+  PanelTop,
+  LogOut,
   ChevronLeft,
   ChevronRight,
   type LucideIcon,
@@ -40,13 +42,14 @@ const iconMap: Record<string, LucideIcon> = {
   TrendingUp,
   Activity,
   Layers,
+  PanelTop,
 }
 
 export function Sidebar() {
   const pathname = usePathname()
   const collapsed = usePreferencesStore((s) => s.sidebarCollapsed)
   const toggleSidebar = usePreferencesStore((s) => s.toggleSidebar)
-  const { user } = useAuth()
+  const { user, logout } = useAuth()
   const sections = groupBySections(navItems)
   const primaryRole = user?.roles?.[0] ?? null
 
@@ -97,7 +100,16 @@ export function Sidebar() {
                   title={collapsed ? item.label : undefined}
                 >
                   <Icon size={18} />
-                  {!collapsed && <span>{item.label}</span>}
+                  {!collapsed && (
+                    <>
+                      <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                      {item.badge && (
+                        <span className="rounded border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 text-[10px] text-amber-300">
+                          {item.badge}
+                        </span>
+                      )}
+                    </>
+                  )}
                 </Link>
               )
             })}
@@ -105,9 +117,23 @@ export function Sidebar() {
         ))}
       </nav>
 
+      {/* Command Center launcher */}
+      <div className="border-t border-white/10 px-3 py-3">
+        <Link
+          href="/control"
+          className={`flex w-full items-center gap-2 rounded-md border border-cyan-500/30 bg-cyan-500/10 px-2 py-2 text-xs font-medium text-cyan-200 transition-colors hover:bg-cyan-500/20 hover:text-white ${
+            collapsed ? "justify-center" : ""
+          }`}
+          title="Launch Command Center"
+        >
+          <PanelTop size={16} />
+          {!collapsed && <span>Command Center</span>}
+        </Link>
+      </div>
+
       {/* Role indicator */}
       {user && (
-        <div className="border-t border-white/10 px-3 py-3">
+        <div className="space-y-2 border-t border-white/10 px-3 py-3">
           {collapsed ? (
             <div
               className="flex items-center justify-center"
@@ -130,6 +156,17 @@ export function Sidebar() {
               </div>
             </div>
           )}
+          <button
+            type="button"
+            onClick={logout}
+            className={`flex w-full items-center gap-2 rounded-md px-2 py-2 text-xs text-gray-400 transition-colors hover:bg-white/5 hover:text-white ${
+              collapsed ? "justify-center" : ""
+            }`}
+            title="Sign out"
+          >
+            <LogOut size={16} />
+            {!collapsed && <span>Sign out</span>}
+          </button>
         </div>
       )}
     </aside>

@@ -1,4 +1,4 @@
-using OpenAI.Chat;
+using CognitiveMesh.Shared.Interfaces;
 
 namespace CognitiveMesh.ReasoningLayer.DomainSpecificReasoning;
 
@@ -26,7 +26,7 @@ public interface IDomainKnowledgePort
 public class DomainSpecificReasoner
 {
     private readonly TextAnalyticsClient _textAnalyticsClient;
-    private readonly ChatClient _chatClient;
+    private readonly ILLMClient _llmClient;
     private readonly ILogger<DomainSpecificReasoner> _logger;
     private readonly IDomainKnowledgePort _domainKnowledgePort;
 
@@ -34,18 +34,17 @@ public class DomainSpecificReasoner
     /// Initializes a new instance of the <see cref="DomainSpecificReasoner"/> class.
     /// </summary>
     /// <param name="textAnalyticsClient">The Azure Text Analytics client for key phrase extraction.</param>
-    /// <param name="openAIClient">The Azure OpenAI client for LLM-based reasoning.</param>
+    /// <param name="llmClient">The LLM client for routed model reasoning.</param>
     /// <param name="logger">The logger instance for structured logging.</param>
     /// <param name="domainKnowledgePort">The port for retrieving domain-specific knowledge.</param>
     public DomainSpecificReasoner(
         TextAnalyticsClient textAnalyticsClient,
-        AzureOpenAIClient openAIClient,
+        ILLMClient llmClient,
         ILogger<DomainSpecificReasoner> logger,
         IDomainKnowledgePort domainKnowledgePort)
     {
         _textAnalyticsClient = textAnalyticsClient ?? throw new ArgumentNullException(nameof(textAnalyticsClient));
-        ArgumentNullException.ThrowIfNull(openAIClient);
-        _chatClient = openAIClient.GetChatClient("text-davinci-003");
+        _llmClient = llmClient ?? throw new ArgumentNullException(nameof(llmClient));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _domainKnowledgePort = domainKnowledgePort ?? throw new ArgumentNullException(nameof(domainKnowledgePort));
     }
@@ -79,20 +78,14 @@ public class DomainSpecificReasoner
 
             var messages = new List<ChatMessage>
             {
-                new SystemChatMessage(systemPrompt),
-                new UserChatMessage($"Domain Knowledge:\n{domainKnowledge}\n\nQuestion: {input}")
+                new("system", systemPrompt),
+                new("user", $"Domain Knowledge:\n{domainKnowledge}\n\nQuestion: {input}")
             };
 
-            var options = new ChatCompletionOptions
-            {
-                Temperature = 0.3f,
-                MaxOutputTokenCount = 800
-            };
-
-            var completion = await _chatClient.CompleteChatAsync(messages, options, cancellationToken);
+            var completion = await _llmClient.GenerateChatCompletionAsync(messages, 0.3f, 800, cancellationToken);
 
             _logger.LogInformation("Successfully applied specialized knowledge for domain: {Domain}", domain);
-            return completion.Value.Content[0].Text;
+            return completion;
         }
         catch (Exception ex)
         {

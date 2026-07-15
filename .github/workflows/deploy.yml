@@ -1,16 +1,17 @@
 ###############################################################################
-# Cognitive Mesh — Deploy Pipeline
+# Cognitive Mesh - API Deploy Pipeline
 #
-# Trigger: Push to main (after build.yml succeeds) or manual dispatch.
-# Flow:    Build Docker -> Push to ACR -> Deploy Staging -> Manual Gate -> Deploy Production
+# Flow: Build Docker -> Push to shared ACR -> Deploy staging slot -> Deploy prod.
 #
 # Required secrets:
-#   AZURE_CREDENTIALS         – Service principal JSON for az login (federated or secret)
-#   ACR_LOGIN_SERVER          – e.g. cognitivemeshacr.azurecr.io
-#   ACR_USERNAME              – ACR admin or SP username
-#   ACR_PASSWORD              – ACR admin or SP password
-#   AKS_CLUSTER_NAME          – AKS cluster name
-#   AKS_RESOURCE_GROUP        – Resource group containing the AKS cluster
+#   AZURE_CLIENT_ID
+#   AZURE_TENANT_ID
+#   AZURE_SUBSCRIPTION_ID
+#   COGMESH_SLUICE_API_KEY (optional temporary bridge if a Key Vault reference is unavailable)
+#
+# Required repository or organization variables:
+#   AZURE_WEBAPP_RESOURCE_GROUP
+#   COGNITIVE_MESH_API_APP_NAME
 ###############################################################################
 
 name: Deploy
@@ -19,11 +20,11 @@ on:
   workflow_run:
     workflows: ["Build and Analyze"]
     types: [completed]
-    branches: [main]
+    branches: [dev, main]
   workflow_dispatch:
     inputs:
-      skip_staging:
-        description: "Skip staging deployment and deploy directly to production"
+      skip_slot:
+        description: "Skip staging slot deployment and deploy directly to production"
         required: false
         default: "false"
         type: boolean
@@ -33,40 +34,46 @@ on:
         type: string
 
 concurrency:
-  group: deploy-${{ github.ref }}
+  group: deploy-api-${{ github.ref }}
   cancel-in-progress: false
 
 permissions:
   contents: read
-  id-token: write    # For OIDC federated credentials (Azure)
+  id-token: write
   actions: read
 
 env:
+  ACR_NAME: myssharedacr
+  ACR_LOGIN_SERVER: myssharedacr.azurecr.io
   IMAGE_NAME: cognitive-mesh-api
-  KUSTOMIZE_VERSION: "5.4.3"
+  PRODUCTION_URL: https://cognitive-mesh-api-prod.azurewebsites.net
+  SLOT_URL: https://cognitive-mesh-api-prod-staging.azurewebsites.net
 
 jobs:
-  # -----------------------------------------------------------------------
-  # 1. Build & Push Docker image to ACR
-  # -----------------------------------------------------------------------
   build-and-push:
-    name: Build & Push Docker Image
+    name: Build & Push API Image
     runs-on: ubuntu-latest
-    # Only run if the triggering workflow succeeded (or if manually dispatched)
     if: >
       github.event_name == 'workflow_dispatch' ||
       github.event.workflow_run.conclusion == 'success'
     outputs:
       image_tag: ${{ steps.meta.outputs.tag }}
-      image_digest: ${{ steps.push.outputs.digest }}
+      image_ref: ${{ steps.meta.outputs.image_ref }}
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.3
         with:
           fetch-depth: 0
 
-      - name: Compute image tag
+      - name: Azure login
+        uses: azure/login@v2.3.0
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Compute image metadata
         id: meta
         run: |
           if [ -n "${{ inputs.image_tag }}" ]; then
@@ -74,181 +81,246 @@ jobs:
           else
             TAG="sha-$(git rev-parse --short HEAD)"
           fi
+          IMAGE_REF="${ACR_LOGIN_SERVER}/${IMAGE_NAME}:${TAG}"
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
-          echo "Image tag: ${TAG}"
+          echo "image_ref=${IMAGE_REF}" >> "$GITHUB_OUTPUT"
+          echo "Image: ${IMAGE_REF}"
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@v4.2.0
 
-      - name: Log in to Azure Container Registry
-        uses: docker/login-action@v4
-        with:
-          registry: ${{ secrets.ACR_LOGIN_SERVER }}
-          username: ${{ secrets.ACR_USERNAME }}
-          password: ${{ secrets.ACR_PASSWORD }}
+      - name: Log in to shared ACR
+        run: az acr login --name "${ACR_NAME}"
 
       - name: Build and push
-        id: push
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@v7.3.0
         with:
           context: .
           push: true
           tags: |
-            ${{ secrets.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.tag }}
-            ${{ secrets.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:latest
+            ${{ steps.meta.outputs.image_ref }}
+            ${{ env.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
 
-  # -----------------------------------------------------------------------
-  # 2. Deploy to Staging
-  # -----------------------------------------------------------------------
-  deploy-staging:
-    name: Deploy to Staging
+  deploy-slot:
+    name: Deploy API to Staging Slot
     needs: build-and-push
-    if: inputs.skip_staging != true
-    runs-on: ubuntu-latest
-    environment:
-      name: staging
-      url: https://staging.cognitivemesh.io
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-
-      - name: Azure Login
-        uses: azure/login@v2
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-      - name: Set AKS context
-        uses: azure/aks-set-context@v4
-        with:
-          cluster-name: ${{ secrets.AKS_CLUSTER_NAME }}
-          resource-group: ${{ secrets.AKS_RESOURCE_GROUP }}
-
-      - name: Install Kustomize
-        uses: imranismail/setup-kustomize@v2
-        with:
-          kustomize-version: ${{ env.KUSTOMIZE_VERSION }}
-
-      - name: Update image tag in staging overlay
-        run: |
-          cd k8s/overlays/staging
-          kustomize edit set image \
-            cognitive-mesh-api=${{ secrets.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:${{ needs.build-and-push.outputs.image_tag }}
-
-      - name: Apply staging manifests
-        run: |
-          kustomize build k8s/overlays/staging | kubectl apply -f -
-
-      - name: Wait for rollout
-        run: |
-          kubectl rollout status deployment/cognitive-mesh-api \
-            -n cognitive-mesh-staging \
-            --timeout=300s
-
-      - name: Run smoke tests
-        run: |
-          STAGING_URL="http://cognitive-mesh-api.cognitive-mesh-staging.svc.cluster.local:8080"
-          # Wait for the service to become reachable
-          for i in $(seq 1 30); do
-            if kubectl exec -n cognitive-mesh-staging deploy/cognitive-mesh-api -- \
-              curl -sf "${STAGING_URL}/healthz" > /dev/null 2>&1; then
-              echo "Staging health check passed"
-              exit 0
-            fi
-            echo "Waiting for staging to be ready... ($i/30)"
-            sleep 10
-          done
-          echo "Staging health check failed after 5 minutes"
-          exit 1
-
-  # -----------------------------------------------------------------------
-  # 3. Deploy to Production (manual approval via GitHub Environment)
-  # -----------------------------------------------------------------------
-  deploy-production:
-    name: Deploy to Production
-    needs: [build-and-push, deploy-staging]
-    # Run if staging succeeded, or if staging was skipped
-    if: always() && needs.build-and-push.result == 'success' && (needs.deploy-staging.result == 'success' || needs.deploy-staging.result == 'skipped')
+    if: github.event_name != 'workflow_dispatch' || inputs.skip_slot != true
     runs-on: ubuntu-latest
     environment:
       name: production
-      url: https://cognitivemesh.io
+      url: https://cognitive-mesh-api-prod-staging.azurewebsites.net
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-
-      - name: Azure Login
-        uses: azure/login@v2
+      - name: Azure login
+        uses: azure/login@v2.3.0
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Set AKS context
-        uses: azure/aks-set-context@v4
+      - name: Configure staging slot container
+        env:
+          COGMESH_DOCKET_BASE_URL: ${{ vars.COGMESH_DOCKET_BASE_URL }}
+          COGMESH_DOCKET_AUDIENCE: ${{ vars.COGMESH_DOCKET_AUDIENCE }}
+          COGMESH_DOCKET_SCOPE: ${{ vars.COGMESH_DOCKET_SCOPE }}
+          COGMESH_DOCKET_API_KEY: ${{ secrets.COGMESH_DOCKET_API_KEY }}
+          COGMESH_DOCKET_API_KEY_SECRET_URI: ${{ vars.COGMESH_DOCKET_API_KEY_SECRET_URI }}
+          COGMESH_SLUICE_BASE_URL: ${{ vars.COGMESH_SLUICE_BASE_URL }}
+          COGMESH_SLUICE_MODEL: ${{ vars.COGMESH_SLUICE_MODEL || 'default' }}
+          COGMESH_SLUICE_MAX_TOKENS: ${{ vars.COGMESH_SLUICE_MAX_TOKENS || '16384' }}
+          COGMESH_SLUICE_API_KEY: ${{ secrets.COGMESH_SLUICE_API_KEY }}
+          COGMESH_SLUICE_API_KEY_SECRET_URI: ${{ vars.COGMESH_SLUICE_API_KEY_SECRET_URI }}
+        run: |
+          az webapp config container set \
+            --resource-group "${{ vars.AZURE_WEBAPP_RESOURCE_GROUP }}" \
+            --name "${{ vars.COGNITIVE_MESH_API_APP_NAME }}" \
+            --slot staging \
+            --container-image-name "${{ needs.build-and-push.outputs.image_ref }}" \
+            --container-registry-url "https://${ACR_LOGIN_SERVER}"
+          app_settings=(
+            WEBSITES_PORT=8080
+            ASPNETCORE_URLS=http://+:8080
+            Cors__AllowedOrigins__0=https://cognitive-mesh-frontend-prod.azurewebsites.net
+            Cors__AllowedOrigins__1=https://cognitive-mesh-frontend-prod-staging.azurewebsites.net
+            Cors__AllowedOrigins__2=https://cognitive-mesh.neuralliquid.ai
+            Cors__AllowedOrigins__3=https://control.cognitive-mesh.neuralliquid.ai
+            Cors__AllowedOrigins__4=https://cognitivemesh.neuralliquid.ai
+            Cors__AllowedOrigins__5=https://app.cognitivemesh.neuralliquid.ai
+            Cors__AllowedOrigins__6=https://frontend.cognitivemesh.neuralliquid.ai
+            ALLOW_DIRECT_MODEL_PROVIDER=false
+          )
+          if [ -n "${COGMESH_DOCKET_BASE_URL}" ]; then
+            app_settings+=(DOCKET_BASE_URL="${COGMESH_DOCKET_BASE_URL}")
+          fi
+          if [ -n "${COGMESH_DOCKET_AUDIENCE}" ]; then
+            app_settings+=(DOCKET_AUDIENCE="${COGMESH_DOCKET_AUDIENCE}")
+          fi
+          if [ -n "${COGMESH_DOCKET_SCOPE}" ]; then
+            app_settings+=(DOCKET_SCOPE="${COGMESH_DOCKET_SCOPE}")
+          fi
+          if [ -n "${COGMESH_DOCKET_API_KEY_SECRET_URI}" ]; then
+            app_settings+=(DOCKET_API_KEY="@Microsoft.KeyVault(SecretUri=${COGMESH_DOCKET_API_KEY_SECRET_URI})")
+          elif [ -n "${COGMESH_DOCKET_API_KEY}" ]; then
+            app_settings+=(DOCKET_API_KEY="${COGMESH_DOCKET_API_KEY}")
+          fi
+          if [ -n "${COGMESH_SLUICE_BASE_URL}" ]; then
+            app_settings+=(SLUICE_BASE_URL="${COGMESH_SLUICE_BASE_URL}")
+            app_settings+=(SLUICE_MODEL="${COGMESH_SLUICE_MODEL}")
+            app_settings+=(SLUICE_MAX_TOKENS="${COGMESH_SLUICE_MAX_TOKENS}")
+          fi
+          if [ -n "${COGMESH_SLUICE_API_KEY_SECRET_URI}" ]; then
+            app_settings+=(SLUICE_API_KEY="@Microsoft.KeyVault(SecretUri=${COGMESH_SLUICE_API_KEY_SECRET_URI})")
+          elif [ -n "${COGMESH_SLUICE_API_KEY}" ]; then
+            app_settings+=(SLUICE_API_KEY="${COGMESH_SLUICE_API_KEY}")
+          fi
+          az webapp config appsettings set \
+            --resource-group "${{ vars.AZURE_WEBAPP_RESOURCE_GROUP }}" \
+            --name "${{ vars.COGNITIVE_MESH_API_APP_NAME }}" \
+            --slot staging \
+            --settings "${app_settings[@]}"
+          if [ -z "${COGMESH_DOCKET_API_KEY_SECRET_URI}" ] && [ -z "${COGMESH_DOCKET_API_KEY}" ]; then
+            az webapp config appsettings delete \
+              --resource-group "${{ vars.AZURE_WEBAPP_RESOURCE_GROUP }}" \
+              --name "${{ vars.COGNITIVE_MESH_API_APP_NAME }}" \
+              --slot staging \
+              --setting-names DOCKET_API_KEY || true
+          fi
+          if [ -z "${COGMESH_SLUICE_API_KEY_SECRET_URI}" ] && [ -z "${COGMESH_SLUICE_API_KEY}" ]; then
+            az webapp config appsettings delete \
+              --resource-group "${{ vars.AZURE_WEBAPP_RESOURCE_GROUP }}" \
+              --name "${{ vars.COGNITIVE_MESH_API_APP_NAME }}" \
+              --slot staging \
+              --setting-names SLUICE_API_KEY || true
+          fi
+
+      - name: Restart staging slot
+        run: |
+          az webapp restart \
+            --resource-group "${{ vars.AZURE_WEBAPP_RESOURCE_GROUP }}" \
+            --name "${{ vars.COGNITIVE_MESH_API_APP_NAME }}" \
+            --slot staging
+
+      - name: Verify staging slot health
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS "${SLOT_URL}/healthz"; then
+              echo "Staging slot health check passed"
+              exit 0
+            fi
+            echo "Waiting for staging slot... ($i/30)"
+            sleep 10
+          done
+          echo "Staging slot health check failed"
+          exit 1
+
+  deploy-production:
+    name: Deploy API to Production
+    needs: [build-and-push, deploy-slot]
+    if: always() && needs.build-and-push.result == 'success' && (needs.deploy-slot.result == 'success' || needs.deploy-slot.result == 'skipped')
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://cognitive-mesh-api-prod.azurewebsites.net
+
+    steps:
+      - name: Azure login
+        uses: azure/login@v2.3.0
         with:
-          cluster-name: ${{ secrets.AKS_CLUSTER_NAME }}
-          resource-group: ${{ secrets.AKS_RESOURCE_GROUP }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Install Kustomize
-        uses: imranismail/setup-kustomize@v2
-        with:
-          kustomize-version: ${{ env.KUSTOMIZE_VERSION }}
-
-      - name: Update image tag in production overlay
+      - name: Configure production container
+        env:
+          COGMESH_DOCKET_BASE_URL: ${{ vars.COGMESH_DOCKET_BASE_URL }}
+          COGMESH_DOCKET_AUDIENCE: ${{ vars.COGMESH_DOCKET_AUDIENCE }}
+          COGMESH_DOCKET_SCOPE: ${{ vars.COGMESH_DOCKET_SCOPE }}
+          COGMESH_DOCKET_API_KEY: ${{ secrets.COGMESH_DOCKET_API_KEY }}
+          COGMESH_DOCKET_API_KEY_SECRET_URI: ${{ vars.COGMESH_DOCKET_API_KEY_SECRET_URI }}
+          COGMESH_SLUICE_BASE_URL: ${{ vars.COGMESH_SLUICE_BASE_URL }}
+          COGMESH_SLUICE_MODEL: ${{ vars.COGMESH_SLUICE_MODEL || 'default' }}
+          COGMESH_SLUICE_MAX_TOKENS: ${{ vars.COGMESH_SLUICE_MAX_TOKENS || '16384' }}
+          COGMESH_SLUICE_API_KEY: ${{ secrets.COGMESH_SLUICE_API_KEY }}
+          COGMESH_SLUICE_API_KEY_SECRET_URI: ${{ vars.COGMESH_SLUICE_API_KEY_SECRET_URI }}
         run: |
-          cd k8s/overlays/prod
-          kustomize edit set image \
-            cognitive-mesh-api=${{ secrets.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:${{ needs.build-and-push.outputs.image_tag }}
+          az webapp config container set \
+            --resource-group "${{ vars.AZURE_WEBAPP_RESOURCE_GROUP }}" \
+            --name "${{ vars.COGNITIVE_MESH_API_APP_NAME }}" \
+            --container-image-name "${{ needs.build-and-push.outputs.image_ref }}" \
+            --container-registry-url "https://${ACR_LOGIN_SERVER}"
+          app_settings=(
+            WEBSITES_PORT=8080
+            ASPNETCORE_URLS=http://+:8080
+            Cors__AllowedOrigins__0=https://cognitive-mesh-frontend-prod.azurewebsites.net
+            Cors__AllowedOrigins__1=https://cognitive-mesh-frontend-prod-staging.azurewebsites.net
+            Cors__AllowedOrigins__2=https://cognitive-mesh.neuralliquid.ai
+            Cors__AllowedOrigins__3=https://control.cognitive-mesh.neuralliquid.ai
+            Cors__AllowedOrigins__4=https://cognitivemesh.neuralliquid.ai
+            Cors__AllowedOrigins__5=https://app.cognitivemesh.neuralliquid.ai
+            Cors__AllowedOrigins__6=https://frontend.cognitivemesh.neuralliquid.ai
+            ALLOW_DIRECT_MODEL_PROVIDER=false
+          )
+          if [ -n "${COGMESH_DOCKET_BASE_URL}" ]; then
+            app_settings+=(DOCKET_BASE_URL="${COGMESH_DOCKET_BASE_URL}")
+          fi
+          if [ -n "${COGMESH_DOCKET_AUDIENCE}" ]; then
+            app_settings+=(DOCKET_AUDIENCE="${COGMESH_DOCKET_AUDIENCE}")
+          fi
+          if [ -n "${COGMESH_DOCKET_SCOPE}" ]; then
+            app_settings+=(DOCKET_SCOPE="${COGMESH_DOCKET_SCOPE}")
+          fi
+          if [ -n "${COGMESH_DOCKET_API_KEY_SECRET_URI}" ]; then
+            app_settings+=(DOCKET_API_KEY="@Microsoft.KeyVault(SecretUri=${COGMESH_DOCKET_API_KEY_SECRET_URI})")
+          elif [ -n "${COGMESH_DOCKET_API_KEY}" ]; then
+            app_settings+=(DOCKET_API_KEY="${COGMESH_DOCKET_API_KEY}")
+          fi
+          if [ -n "${COGMESH_SLUICE_BASE_URL}" ]; then
+            app_settings+=(SLUICE_BASE_URL="${COGMESH_SLUICE_BASE_URL}")
+            app_settings+=(SLUICE_MODEL="${COGMESH_SLUICE_MODEL}")
+            app_settings+=(SLUICE_MAX_TOKENS="${COGMESH_SLUICE_MAX_TOKENS}")
+          fi
+          if [ -n "${COGMESH_SLUICE_API_KEY_SECRET_URI}" ]; then
+            app_settings+=(SLUICE_API_KEY="@Microsoft.KeyVault(SecretUri=${COGMESH_SLUICE_API_KEY_SECRET_URI})")
+          elif [ -n "${COGMESH_SLUICE_API_KEY}" ]; then
+            app_settings+=(SLUICE_API_KEY="${COGMESH_SLUICE_API_KEY}")
+          fi
+          az webapp config appsettings set \
+            --resource-group "${{ vars.AZURE_WEBAPP_RESOURCE_GROUP }}" \
+            --name "${{ vars.COGNITIVE_MESH_API_APP_NAME }}" \
+            --settings "${app_settings[@]}"
+          if [ -z "${COGMESH_DOCKET_API_KEY_SECRET_URI}" ] && [ -z "${COGMESH_DOCKET_API_KEY}" ]; then
+            az webapp config appsettings delete \
+              --resource-group "${{ vars.AZURE_WEBAPP_RESOURCE_GROUP }}" \
+              --name "${{ vars.COGNITIVE_MESH_API_APP_NAME }}" \
+              --setting-names DOCKET_API_KEY || true
+          fi
+          if [ -z "${COGMESH_SLUICE_API_KEY_SECRET_URI}" ] && [ -z "${COGMESH_SLUICE_API_KEY}" ]; then
+            az webapp config appsettings delete \
+              --resource-group "${{ vars.AZURE_WEBAPP_RESOURCE_GROUP }}" \
+              --name "${{ vars.COGNITIVE_MESH_API_APP_NAME }}" \
+              --setting-names SLUICE_API_KEY || true
+          fi
 
-      - name: Apply production manifests
+      - name: Restart production
         run: |
-          kustomize build k8s/overlays/prod | kubectl apply -f -
-
-      - name: Wait for rollout
-        run: |
-          kubectl rollout status deployment/cognitive-mesh-api \
-            -n cognitive-mesh-prod \
-            --timeout=600s
+          az webapp restart \
+            --resource-group "${{ vars.AZURE_WEBAPP_RESOURCE_GROUP }}" \
+            --name "${{ vars.COGNITIVE_MESH_API_APP_NAME }}"
 
       - name: Verify production health
         run: |
-          PROD_URL="http://cognitive-mesh-api.cognitive-mesh-prod.svc.cluster.local:8080"
           for i in $(seq 1 30); do
-            if kubectl exec -n cognitive-mesh-prod deploy/cognitive-mesh-api -- \
-              curl -sf "${PROD_URL}/healthz" > /dev/null 2>&1; then
+            if curl -fsS "${PRODUCTION_URL}/healthz"; then
               echo "Production health check passed"
               exit 0
             fi
-            echo "Waiting for production to be ready... ($i/30)"
+            echo "Waiting for production... ($i/30)"
             sleep 10
           done
-          echo "Production health check failed after 5 minutes"
+          echo "Production health check failed"
           exit 1
-
-  # -----------------------------------------------------------------------
-  # 4. Post-deploy notification
-  # -----------------------------------------------------------------------
-  notify:
-    name: Notify on Failure
-    if: failure()
-    needs: [build-and-push, deploy-staging, deploy-production]
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Send failure notification
-        uses: rtCamp/action-slack-notify@v2
-        if: env.SLACK_WEBHOOK != ''
-        env:
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
-          SLACK_COLOR: "#FF0000"
-          SLACK_TITLE: "Deployment Failed"
-          SLACK_MESSAGE: |
-            Deployment of `${{ github.sha }}` failed.
-            Workflow: ${{ github.workflow }}
-            Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          SLACK_USERNAME: "GitHub Actions"

@@ -1,11 +1,9 @@
 using System.Text;
 using System.Text.RegularExpressions;
-using Azure;
-using Azure.AI.OpenAI;
+using CognitiveMesh.Shared.Interfaces;
 using FoundationLayer.EnterpriseConnectors;
 using MetacognitiveLayer.ContinuousLearning.Models;
 using Microsoft.Azure.Cosmos;
-using OpenAI.Chat;
 
 namespace MetacognitiveLayer.ContinuousLearning;
 
@@ -15,7 +13,7 @@ namespace MetacognitiveLayer.ContinuousLearning;
 /// </summary>
 public class ContinuousLearningComponent
 {
-    private readonly ChatClient _chatClient;
+    private readonly ILLMClient _llmClient;
     private readonly CosmosClient _cosmosClient;
     private readonly Container _learningDataContainer;
     private readonly FeatureFlagManager _featureFlagManager;
@@ -23,24 +21,19 @@ public class ContinuousLearningComponent
     /// <summary>
     /// Initializes a new instance of the <see cref="ContinuousLearningComponent"/> class.
     /// </summary>
-    /// <param name="openAIEndpoint">The Azure OpenAI endpoint URL.</param>
-    /// <param name="openAIApiKey">The Azure OpenAI API key.</param>
-    /// <param name="completionDeployment">The deployment name for chat completions.</param>
+    /// <param name="llmClient">The LLM client for routed insight generation.</param>
     /// <param name="cosmosConnectionString">The Cosmos DB connection string.</param>
     /// <param name="databaseName">The Cosmos DB database name.</param>
     /// <param name="containerName">The Cosmos DB container name for learning data.</param>
     /// <param name="featureFlagManager">The feature flag manager for checking enablement.</param>
     public ContinuousLearningComponent(
-        string openAIEndpoint,
-        string openAIApiKey,
-        string completionDeployment,
+        ILLMClient llmClient,
         string cosmosConnectionString,
         string databaseName,
         string containerName,
         FeatureFlagManager featureFlagManager)
     {
-        var aoaiClient = new AzureOpenAIClient(new Uri(openAIEndpoint), new AzureKeyCredential(openAIApiKey));
-        _chatClient = aoaiClient.GetChatClient(completionDeployment);
+        _llmClient = llmClient ?? throw new ArgumentNullException(nameof(llmClient));
         _cosmosClient = new CosmosClient(cosmosConnectionString);
         _learningDataContainer = _cosmosClient.GetContainer(databaseName, containerName);
         _featureFlagManager = featureFlagManager;
@@ -216,17 +209,13 @@ public class ContinuousLearningComponent
                          "Generate 2-3 insights about performance improvements or degradations over time. " +
                          "For each insight, provide a title, description, and severity (High, Medium, Low).";
         
-        var completion = await _chatClient.CompleteChatAsync(
+        var insightsText = await _llmClient.GenerateChatCompletionAsync(
             [
-                new SystemChatMessage(systemPrompt),
-                new UserChatMessage(userPrompt)
+                new ChatMessage("system", systemPrompt),
+                new ChatMessage("user", userPrompt)
             ],
-            new ChatCompletionOptions
-            {
-                Temperature = 0.3f,
-                MaxOutputTokenCount = 1000
-            });
-        var insightsText = completion.Value.Content[0].Text;
+            0.3f,
+            1000);
 
         // Parse insights
         return ParseInsights(insightsText, "PerformanceTrend");
@@ -283,17 +272,13 @@ public class ContinuousLearningComponent
                          "Generate 2-3 insights about what factors correlate with positive or negative feedback. " +
                          "For each insight, provide a title, description, and severity (High, Medium, Low).";
         
-        var completion = await _chatClient.CompleteChatAsync(
+        var insightsText = await _llmClient.GenerateChatCompletionAsync(
             [
-                new SystemChatMessage(systemPrompt),
-                new UserChatMessage(userPrompt)
+                new ChatMessage("system", systemPrompt),
+                new ChatMessage("user", userPrompt)
             ],
-            new ChatCompletionOptions
-            {
-                Temperature = 0.3f,
-                MaxOutputTokenCount = 1000
-            });
-        var insightsText = completion.Value.Content[0].Text;
+            0.3f,
+            1000);
 
         // Parse insights
         return ParseInsights(insightsText, "FeedbackInsight");
@@ -345,17 +330,13 @@ public class ContinuousLearningComponent
                          "Generate 2-3 insights about specific areas that need enhancement. " +
                          "For each insight, provide a title, description, and severity (High, Medium, Low).";
         
-        var completion = await _chatClient.CompleteChatAsync(
+        var insightsText = await _llmClient.GenerateChatCompletionAsync(
             [
-                new SystemChatMessage(systemPrompt),
-                new UserChatMessage(userPrompt)
+                new ChatMessage("system", systemPrompt),
+                new ChatMessage("user", userPrompt)
             ],
-            new ChatCompletionOptions
-            {
-                Temperature = 0.3f,
-                MaxOutputTokenCount = 1000
-            });
-        var insightsText = completion.Value.Content[0].Text;
+            0.3f,
+            1000);
 
         // Parse insights
         return ParseInsights(insightsText, "ImprovementOpportunity");
@@ -416,17 +397,13 @@ public class ContinuousLearningComponent
                          "Focus on actionable changes to components, processes, or configurations. " +
                          "For each suggestion, provide a clear description of the change and its expected impact.";
         
-        var completion = await _chatClient.CompleteChatAsync(
+        var suggestionsText = await _llmClient.GenerateChatCompletionAsync(
             [
-                new SystemChatMessage(systemPrompt),
-                new UserChatMessage(userPrompt)
+                new ChatMessage("system", systemPrompt),
+                new ChatMessage("user", userPrompt)
             ],
-            new ChatCompletionOptions
-            {
-                Temperature = 0.4f,
-                MaxOutputTokenCount = 1200
-            });
-        var suggestionsText = completion.Value.Content[0].Text;
+            0.4f,
+            1200);
         
         // Parse suggestions
         return ParseSuggestions(suggestionsText);
@@ -491,17 +468,13 @@ public class ContinuousLearningComponent
                              "Provide a structured summary highlighting the key signal (positive/negative), " +
                              "the likely cause, and any actionable learning point.";
 
-            var completion = await _chatClient.CompleteChatAsync(
+            var summary = await _llmClient.GenerateChatCompletionAsync(
                 [
-                    new SystemChatMessage(systemPrompt),
-                    new UserChatMessage(userPrompt)
+                    new ChatMessage("system", systemPrompt),
+                    new ChatMessage("user", userPrompt)
                 ],
-                new ChatCompletionOptions
-                {
-                    Temperature = 0.2f,
-                    MaxOutputTokenCount = 300
-                });
-            var summary = completion.Value.Content[0].Text;
+                0.2f,
+                300);
 
             // Store the enriched feedback summary back to Cosmos DB for future retrieval
             var enrichedRecord = new
@@ -556,17 +529,13 @@ public class ContinuousLearningComponent
                              "Generate a brief learning signal (2-3 sentences) describing what went wrong " +
                              "and how the system should adjust.";
 
-            var completion = await _chatClient.CompleteChatAsync(
+            var learningSignal = await _llmClient.GenerateChatCompletionAsync(
                 [
-                    new SystemChatMessage(systemPrompt),
-                    new UserChatMessage(userPrompt)
+                    new ChatMessage("system", systemPrompt),
+                    new ChatMessage("user", userPrompt)
                 ],
-                new ChatCompletionOptions
-                {
-                    Temperature = 0.2f,
-                    MaxOutputTokenCount = 300
-                });
-            var learningSignal = completion.Value.Content[0].Text;
+                0.2f,
+                300);
 
             // Store the learning signal for future model adaptation cycles
             var signalRecord = new

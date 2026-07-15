@@ -19,6 +19,8 @@ This directory contains the OpenAPI specification for the Cognitive Mesh Convene
   - `notifications.yaml` - Event notifications system
 
 - `index.yaml` - Root document that combines all components and paths
+- `agent-contracts/` - JSON Schemas and examples for governed workflow contracts
+  and benchmark harness gates used by Agent Operating Model v0
 
 ## Development
 
