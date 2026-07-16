@@ -6,6 +6,7 @@ using CognitiveMesh.BusinessApplications.AdaptiveBalance.Infrastructure;
 using CognitiveMesh.BusinessApplications.ImpactMetrics.Infrastructure;
 using CognitiveMesh.BusinessApplications.NISTCompliance.Infrastructure;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -35,6 +36,7 @@ builder.Services.AddImpactMetricsServices();
 builder.Services.AddCognitiveMeshRealTime();
 builder.Services.AddSingleton<ModelRoutingTelemetryStore>();
 builder.Services.AddHttpClient<IDocketUsageRecorder, DocketUsageRecorder>();
+builder.Services.AddHttpClient<ICommandNexusExecutor, SluiceCommandNexusExecutor>();
 
 // CORS — allow the Next.js frontend during development
 builder.Services.AddCors(options =>
@@ -216,6 +218,36 @@ app.MapPost("/api/v1/docket/usage", (DocketUsageEvent usageEvent, IDocketUsageRe
     var recorded = docket.Record(usageEvent);
     return Results.Accepted($"/api/v1/docket/usage/{recorded.CorrelationId}", recorded);
 });
+app.MapPost("/api/v1/command-nexus/execute", async (
+    CommandNexusRequest request,
+    HttpContext httpContext,
+    IConfiguration configuration,
+    IWebHostEnvironment environment,
+    ICommandNexusExecutor executor,
+    CancellationToken cancellationToken) =>
+{
+    if (string.IsNullOrWhiteSpace(request.Command))
+    {
+        return Results.BadRequest(new { error = "Command is required." });
+    }
+
+    var authorization = CommandNexusAuthorization.Authorize(httpContext, configuration, environment);
+    if (!authorization.Allowed)
+    {
+        return authorization.Misconfigured
+            ? Results.Problem("Command Nexus operator authentication is not configured.", statusCode: StatusCodes.Status503ServiceUnavailable)
+            : Results.Unauthorized();
+    }
+
+    var authorizedRequest = request with
+    {
+        TenantId = authorization.TenantId,
+        UserId = authorization.UserId
+    };
+
+    var response = await executor.ExecuteAsync(authorizedRequest, cancellationToken).ConfigureAwait(false);
+    return Results.Ok(response);
+});
 app.MapControllers();
 app.MapCognitiveMeshHubs();
 
@@ -263,6 +295,7 @@ internal sealed class ModelRoutingTelemetryStore
 internal interface IDocketUsageRecorder
 {
     DocketUsageEvent Record(DocketUsageEvent usageEvent);
+    Task<DocketUsageEvent> RecordAsync(DocketUsageEvent usageEvent, CancellationToken cancellationToken);
     IReadOnlyList<DocketUsageEvent> GetRecent(int maxResults);
 }
 
@@ -314,6 +347,18 @@ internal sealed class DocketUsageRecorder : IDocketUsageRecorder
         return normalized;
     }
 
+    public async Task<DocketUsageEvent> RecordAsync(DocketUsageEvent usageEvent, CancellationToken cancellationToken)
+    {
+        var normalized = Normalize(usageEvent);
+        var forwarded = await ForwardUsageAsync(normalized, cancellationToken).ConfigureAwait(false);
+        var recorded = normalized with
+        {
+            Status = forwarded ? "forwarded" : "forward_failed"
+        };
+        Enqueue(recorded);
+        return recorded;
+    }
+
     private void Enqueue(DocketUsageEvent normalized)
     {
         _events.Enqueue(normalized);
@@ -363,7 +408,7 @@ internal sealed class DocketUsageRecorder : IDocketUsageRecorder
         };
     }
 
-    private async Task ForwardUsageAsync(
+    private async Task<bool> ForwardUsageAsync(
         DocketUsageEvent usageEvent,
         CancellationToken cancellationToken)
     {
@@ -372,7 +417,7 @@ internal sealed class DocketUsageRecorder : IDocketUsageRecorder
             ?? string.Empty;
         if (string.IsNullOrWhiteSpace(baseUrl))
         {
-            return;
+            return false;
         }
 
         try
@@ -393,14 +438,18 @@ internal sealed class DocketUsageRecorder : IDocketUsageRecorder
                     "Docket usage ingestion returned {StatusCode} for correlation {CorrelationId}",
                     (int)response.StatusCode,
                     usageEvent.CorrelationId);
+                return false;
             }
+
+            return true;
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex)
         {
             _logger.LogWarning(
                 ex,
                 "Docket usage ingestion failed for correlation {CorrelationId}",
                 usageEvent.CorrelationId);
+            return false;
         }
     }
 
@@ -474,6 +523,272 @@ internal sealed class DocketUsageRecorder : IDocketUsageRecorder
     }
 }
 
+internal interface ICommandNexusExecutor
+{
+    Task<CommandNexusResponse> ExecuteAsync(CommandNexusRequest request, CancellationToken cancellationToken);
+}
+
+internal static class CommandNexusAuthorization
+{
+    private const string ApiKeyHeaderName = "X-Command-Nexus-Key";
+
+    public static CommandNexusAuthorizationResult Authorize(
+        HttpContext httpContext,
+        IConfiguration configuration,
+        IWebHostEnvironment environment)
+    {
+        var configuredKey = configuration["CommandNexus:OperatorApiKey"]
+            ?? configuration["COMMAND_NEXUS_OPERATOR_API_KEY"];
+
+        if (string.IsNullOrWhiteSpace(configuredKey))
+        {
+            return environment.IsDevelopment()
+                ? Authorized(configuration)
+                : CommandNexusAuthorizationResult.ServiceMisconfigured;
+        }
+
+        var presentedKey = ReadPresentedKey(httpContext);
+        if (!FixedTimeEquals(configuredKey, presentedKey))
+        {
+            return CommandNexusAuthorizationResult.Denied;
+        }
+
+        return Authorized(configuration);
+    }
+
+    private static CommandNexusAuthorizationResult Authorized(IConfiguration configuration)
+    {
+        return new CommandNexusAuthorizationResult(
+            true,
+            false,
+            configuration["CommandNexus:TenantId"] ?? "command-nexus",
+            configuration["CommandNexus:OperatorId"] ?? "command-nexus-operator");
+    }
+
+    private static string? ReadPresentedKey(HttpContext httpContext)
+    {
+        if (httpContext.Request.Headers.TryGetValue(ApiKeyHeaderName, out var apiKeyValues))
+        {
+            return apiKeyValues.FirstOrDefault();
+        }
+
+        var authorization = httpContext.Request.Headers.Authorization.ToString();
+        const string bearerPrefix = "Bearer ";
+        if (authorization.StartsWith(bearerPrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            return authorization[bearerPrefix.Length..].Trim();
+        }
+
+        return null;
+    }
+
+    private static bool FixedTimeEquals(string expected, string? actual)
+    {
+        if (string.IsNullOrWhiteSpace(actual))
+        {
+            return false;
+        }
+
+        var expectedBytes = System.Text.Encoding.UTF8.GetBytes(expected);
+        var actualBytes = System.Text.Encoding.UTF8.GetBytes(actual);
+        return expectedBytes.Length == actualBytes.Length &&
+            System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(expectedBytes, actualBytes);
+    }
+}
+
+internal sealed class SluiceCommandNexusExecutor : ICommandNexusExecutor
+{
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private readonly HttpClient _httpClient;
+    private readonly IConfiguration _configuration;
+    private readonly ModelRoutingTelemetryStore _telemetry;
+    private readonly IDocketUsageRecorder _docket;
+
+    public SluiceCommandNexusExecutor(
+        HttpClient httpClient,
+        IConfiguration configuration,
+        ModelRoutingTelemetryStore telemetry,
+        IDocketUsageRecorder docket)
+    {
+        _httpClient = httpClient;
+        _configuration = configuration;
+        _telemetry = telemetry;
+        _docket = docket;
+    }
+
+    public async Task<CommandNexusResponse> ExecuteAsync(
+        CommandNexusRequest request,
+        CancellationToken cancellationToken)
+    {
+        var baseUrl = _configuration["Sluice:BaseUrl"]
+            ?? _configuration["SLUICE_BASE_URL"]
+            ?? string.Empty;
+        var apiKey = _configuration["Sluice:ApiKey"]
+            ?? _configuration["SLUICE_API_KEY"]
+            ?? string.Empty;
+        var model = _configuration["Sluice:Model"]
+            ?? _configuration["SLUICE_MODEL"]
+            ?? "default";
+
+        if (string.IsNullOrWhiteSpace(baseUrl) || string.IsNullOrWhiteSpace(apiKey))
+        {
+            throw new InvalidOperationException("Sluice base URL and API key must be configured for Command Nexus execution.");
+        }
+
+        var correlationId = string.IsNullOrWhiteSpace(request.CorrelationId)
+            ? Guid.NewGuid().ToString()
+            : request.CorrelationId;
+        var context = string.IsNullOrWhiteSpace(request.Context)
+            ? "reasoning"
+            : request.Context;
+        var stopwatch = Stopwatch.StartNew();
+
+        using var httpRequest = new HttpRequestMessage(
+            HttpMethod.Post,
+            new Uri(new Uri(baseUrl.TrimEnd('/') + "/"), "v1/chat/completions"));
+        httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+        httpRequest.Content = JsonContent.Create(new
+        {
+            model,
+            messages = new[]
+            {
+                new { role = "system", content = "You are Cognitive Mesh Command Nexus. Execute bounded operator commands with concise, auditable responses." },
+                new { role = "user", content = request.Command.Trim() }
+            },
+            max_tokens = 192,
+            temperature = 0.2,
+            user = "cognitive-mesh-command-nexus",
+            metadata = new
+            {
+                source = "cognitive-mesh",
+                surface = "command-nexus",
+                context,
+                correlation_id = correlationId
+            }
+        }, options: JsonOptions);
+
+        using var httpResponse = await _httpClient
+            .SendAsync(httpRequest, cancellationToken)
+            .ConfigureAwait(false);
+        var responseText = await httpResponse.Content
+            .ReadAsStringAsync(cancellationToken)
+            .ConfigureAwait(false);
+        stopwatch.Stop();
+
+        if (!httpResponse.IsSuccessStatusCode)
+        {
+            _telemetry.Record(new ModelRoutingEvent(
+                correlationId,
+                "sluice",
+                model,
+                "failed",
+                $"Command Nexus Sluice call failed with HTTP {(int)httpResponse.StatusCode}.",
+                DateTimeOffset.UtcNow,
+                stopwatch.ElapsedMilliseconds,
+                null,
+                "blocked"));
+
+            throw new HttpRequestException(
+                $"Sluice command execution failed with HTTP {(int)httpResponse.StatusCode}: {responseText}");
+        }
+
+        using var document = JsonDocument.Parse(responseText);
+        var root = document.RootElement;
+        var content = ReadAssistantContent(root);
+        var promptTokens = ReadUsageToken(root, "prompt_tokens");
+        var completionTokens = ReadUsageToken(root, "completion_tokens");
+        var totalTokens = ReadUsageToken(root, "total_tokens");
+        if (totalTokens == 0)
+        {
+            totalTokens = promptTokens + completionTokens;
+        }
+        var estimatedCostUsd = EstimateCostUsd(model, promptTokens, completionTokens);
+
+        _telemetry.Record(new ModelRoutingEvent(
+            correlationId,
+            "sluice",
+            model,
+            "completed",
+            "Command Nexus routed a live agentic command through Sluice.",
+            DateTimeOffset.UtcNow,
+            stopwatch.ElapsedMilliseconds,
+            totalTokens,
+            "allowed"));
+
+        using var accountingTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        var usage = await _docket.RecordAsync(new DocketUsageEvent(
+            correlationId,
+            string.IsNullOrWhiteSpace(request.TenantId) ? "command-nexus" : request.TenantId,
+            request.UserId,
+            "CommandNexus",
+            "sluice",
+            model,
+            promptTokens,
+            completionTokens,
+            totalTokens,
+            stopwatch.ElapsedMilliseconds,
+            estimatedCostUsd,
+            "allowed",
+            "recorded",
+            DateTimeOffset.UtcNow), accountingTimeout.Token).ConfigureAwait(false);
+
+        return new CommandNexusResponse(
+            correlationId,
+            context,
+            model,
+            content,
+            promptTokens,
+            completionTokens,
+            totalTokens,
+            stopwatch.ElapsedMilliseconds,
+            estimatedCostUsd,
+            usage.Status,
+            DateTimeOffset.UtcNow);
+    }
+
+    private static string ReadAssistantContent(JsonElement root)
+    {
+        if (!root.TryGetProperty("choices", out var choices) || choices.GetArrayLength() == 0)
+        {
+            return string.Empty;
+        }
+
+        var first = choices[0];
+        if (!first.TryGetProperty("message", out var message) ||
+            !message.TryGetProperty("content", out var content))
+        {
+            return string.Empty;
+        }
+
+        return content.GetString() ?? string.Empty;
+    }
+
+    private static int ReadUsageToken(JsonElement root, string propertyName)
+    {
+        if (!root.TryGetProperty("usage", out var usage) ||
+            !usage.TryGetProperty(propertyName, out var token) ||
+            !token.TryGetInt32(out var value))
+        {
+            return 0;
+        }
+
+        return Math.Max(0, value);
+    }
+
+    private static decimal EstimateCostUsd(string model, int promptTokens, int completionTokens)
+    {
+        if (model.Contains("gpt-4o", StringComparison.OrdinalIgnoreCase))
+        {
+            return decimal.Round(
+                (promptTokens * 0.0000025m) + (completionTokens * 0.0000100m),
+                9,
+                MidpointRounding.AwayFromZero);
+        }
+
+        return 0;
+    }
+}
+
 internal sealed record ModelRoutingStatus(
     string Status,
     string Provider,
@@ -537,6 +852,36 @@ internal sealed record ModelRoutingSummary(
     ModelRoutingStatus Status,
     IReadOnlyList<ModelRoutingEvent> RoutingEvents,
     IReadOnlyList<DocketUsageEvent> UsageEvents);
+
+internal sealed record CommandNexusRequest(
+    string Command,
+    string Context,
+    string? TenantId,
+    string? UserId,
+    string? CorrelationId);
+
+internal sealed record CommandNexusResponse(
+    string CorrelationId,
+    string Context,
+    string Model,
+    string Response,
+    int PromptTokens,
+    int CompletionTokens,
+    int TotalTokens,
+    long LatencyMs,
+    decimal EstimatedCostUsd,
+    string DocketStatus,
+    DateTimeOffset CompletedAt);
+
+internal sealed record CommandNexusAuthorizationResult(
+    bool Allowed,
+    bool Misconfigured,
+    string? TenantId,
+    string? UserId)
+{
+    public static CommandNexusAuthorizationResult Denied { get; } = new(false, false, null, null);
+    public static CommandNexusAuthorizationResult ServiceMisconfigured { get; } = new(false, true, null, null);
+}
 
 internal sealed record SluiceHealthResponse(
     ModelRoutingStatus Status,

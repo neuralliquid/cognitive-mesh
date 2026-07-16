@@ -90,6 +90,9 @@ build_errors.txt
 # Orchestrator runtime state (created from .template on first run)
 .claude/state/orchestrator.json
 
+# Serena local workspace state
+.serena/
+
 # Misc
 .DS_Store
 Thumbs.db

@@ -7,6 +7,13 @@ locals {
   tags = merge(var.common_tags, {
     Environment = var.environment
   })
+
+  command_nexus_operator_secret_name = "cognitive-mesh-command-nexus-operator-key"
+  command_nexus_operator_secret_uri = (
+    var.api_command_nexus_operator_api_key_secret_uri != "" ? var.api_command_nexus_operator_api_key_secret_uri :
+    var.enable_keyvault ? "${module.keyvault[0].key_vault_uri}secrets/${local.command_nexus_operator_secret_name}" :
+    ""
+  )
 }
 
 # ---------- Resource Group ----------
@@ -191,6 +198,9 @@ module "webapps" {
   api_docket_audience                            = var.api_docket_audience
   api_docket_scope                               = var.api_docket_scope
   api_docket_api_key_secret_uri                  = var.api_docket_api_key_secret_uri
+  api_command_nexus_operator_api_key_secret_uri  = local.command_nexus_operator_secret_uri
+  api_command_nexus_tenant_id                    = var.api_command_nexus_tenant_id
+  api_command_nexus_operator_id                  = var.api_command_nexus_operator_id
   frontend_mystira_auth_client_id                = var.frontend_mystira_auth_client_id
   frontend_mystira_tenant_id                     = var.frontend_mystira_tenant_id
   frontend_show_preview_nav                      = var.frontend_show_preview_nav
@@ -198,6 +208,34 @@ module "webapps" {
   frontend_mystira_oidc_client_id                = var.frontend_mystira_oidc_client_id
   frontend_mystira_oidc_client_secret_secret_uri = var.frontend_mystira_oidc_client_secret_secret_uri
   common_tags                                    = local.tags
+}
+
+# ---------- Key Vault application access ----------
+
+resource "azurerm_key_vault_access_policy" "api_command_nexus" {
+  count = var.enable_keyvault && var.enable_webapps ? 1 : 0
+
+  key_vault_id = module.keyvault[0].key_vault_id
+  tenant_id    = module.keyvault[0].tenant_id
+  object_id    = module.webapps[0].api_principal_id
+
+  secret_permissions = [
+    "Get",
+    "List",
+  ]
+}
+
+resource "azurerm_key_vault_access_policy" "api_staging_command_nexus" {
+  count = var.enable_keyvault && var.enable_webapps ? 1 : 0
+
+  key_vault_id = module.keyvault[0].key_vault_id
+  tenant_id    = module.keyvault[0].tenant_id
+  object_id    = module.webapps[0].api_staging_principal_id
+
+  secret_permissions = [
+    "Get",
+    "List",
+  ]
 }
 
 # ---------- Store secrets in Key Vault ----------

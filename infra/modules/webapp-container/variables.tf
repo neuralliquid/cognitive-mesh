@@ -133,6 +133,24 @@ variable "api_docket_api_key_secret_uri" {
   default     = ""
 }
 
+variable "api_command_nexus_operator_api_key_secret_uri" {
+  description = "Key Vault secret URI for the Command Nexus operator API key. The App Service receives this as a Key Vault reference, not a raw secret value."
+  type        = string
+  default     = ""
+}
+
+variable "api_command_nexus_tenant_id" {
+  description = "Tenant identifier recorded for authenticated Command Nexus operator executions."
+  type        = string
+  default     = "command-nexus"
+}
+
+variable "api_command_nexus_operator_id" {
+  description = "Operator identifier recorded for authenticated Command Nexus executions."
+  type        = string
+  default     = "command-nexus-operator"
+}
+
 variable "frontend_mystira_auth_client_id" {
   description = "Public Entra application client ID used by the frontend for Mystira identity login."
   type        = string

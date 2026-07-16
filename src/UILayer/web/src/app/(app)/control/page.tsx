@@ -26,7 +26,7 @@ import {
   X,
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
-import { getAdaptiveBalance, getModelRoutingSummary } from "@/components/widgets/api"
+import { executeCommandNexus, getAdaptiveBalance, getModelRoutingSummary } from "@/components/widgets/api"
 import type { BalanceResponse, ModelRoutingSummary } from "@/components/widgets/types"
 
 type PanelId = "command" | "metrics" | "main" | "tools" | "activity"
@@ -545,7 +545,7 @@ export default function ControlPage() {
   const [panels, setPanels] = useState<PanelState[]>(defaultPanels)
   const [commandText, setCommandText] = useState("")
   const [commandContext, setCommandContext] = useState<CommandContext>("reasoning")
-  const [commandStatus, setCommandStatus] = useState<"idle" | "pending">("idle")
+  const [commandStatus, setCommandStatus] = useState<"idle" | "pending" | "error">("idle")
   const [selectedPanelId, setSelectedPanelId] = useState<PanelId>("tools")
   const [commandLog, setCommandLog] = useState<string[]>([
     "Control interface online",
@@ -603,13 +603,32 @@ export default function ControlPage() {
     setCommandLog((current) => ["Layout reset to default", ...current].slice(0, 6))
   }, [])
 
-  const submitCommand = useCallback(() => {
+  const submitCommand = useCallback(async () => {
     const text = commandText.trim()
-    if (!text) return
+    if (!text || commandStatus === "pending") return
     setCommandStatus("pending")
-    setCommandLog((current) => [`Pending ${commandContext}: ${text}`, ...current].slice(0, 6))
     setCommandText("")
-  }, [commandContext, commandText])
+    setCommandLog((current) => [`Routing ${commandContext}: ${text}`, ...current].slice(0, 6))
+
+    try {
+      const result = await executeCommandNexus({
+        command: text,
+        context: commandContext,
+        tenantId: "command-nexus",
+        userId: "operator",
+      })
+      setCommandStatus("idle")
+      setCommandLog((current) => [
+        `Completed ${result.model}: ${result.totalTokens} tokens, Docket ${result.docketStatus}, ${result.correlationId}`,
+        result.response || "Command completed with no response text",
+        ...current,
+      ].slice(0, 6))
+    } catch (error) {
+      setCommandStatus("error")
+      const message = error instanceof Error ? error.message : "Command execution failed"
+      setCommandLog((current) => [`Command failed: ${message}`, ...current].slice(0, 6))
+    }
+  }, [commandContext, commandStatus, commandText])
 
   const renderedPanels = useMemo(
     () =>
@@ -706,7 +725,12 @@ export default function ControlPage() {
                 type="text"
                 value={commandText}
                 onChange={(event) => setCommandText(event.target.value)}
-                onKeyDown={(event) => event.key === "Enter" && submitCommand()}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault()
+                    void submitCommand()
+                  }
+                }}
                 placeholder={`Enter ${commandContext} command...`}
                 className="min-w-0 flex-1 bg-transparent text-base text-white outline-none placeholder:text-slate-400"
               />
@@ -721,8 +745,8 @@ export default function ControlPage() {
               </button>
               <button
                 type="button"
-                onClick={submitCommand}
-                disabled={!commandText.trim()}
+                onClick={() => void submitCommand()}
+                disabled={!commandText.trim() || commandStatus === "pending"}
                 className="rounded-lg bg-cyan-500/20 p-2 text-cyan-300 transition hover:bg-cyan-500/30 disabled:cursor-not-allowed disabled:opacity-50"
                 title="Queue command"
               >
@@ -730,8 +754,8 @@ export default function ControlPage() {
               </button>
             </div>
             <div className="mt-3 flex items-center gap-2 text-xs text-slate-400">
-              <span className={commandStatus === "pending" ? "text-amber-300" : "text-emerald-300"}>
-                {commandStatus === "pending" ? "Pending execution" : "Ready"}
+              <span className={commandStatus === "pending" ? "text-amber-300" : commandStatus === "error" ? "text-rose-300" : "text-emerald-300"}>
+                {commandStatus === "pending" ? "Executing through Sluice" : commandStatus === "error" ? "Needs attention" : "Ready"}
               </span>
               <span>Context: {commandContext}</span>
             </div>

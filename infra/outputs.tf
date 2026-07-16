@@ -105,6 +105,11 @@ output "key_vault_name" {
   value       = try(module.keyvault[0].key_vault_name, null)
 }
 
+output "command_nexus_operator_secret_uri" {
+  description = "The Key Vault secret URI used by the API for Command Nexus operator authentication. The secret value is written by CI."
+  value       = local.command_nexus_operator_secret_uri == "" ? null : local.command_nexus_operator_secret_uri
+}
+
 # ---------- Monitoring ----------
 
 output "application_insights_connection_string" {
