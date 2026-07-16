@@ -17,7 +17,7 @@
     "generate-api": "openapi-typescript ../../../docs/openapi.yaml -o src/lib/api/generated/services.d.ts && openapi-typescript ../../../docs/spec/agentic-ai.yaml -o src/lib/api/generated/agentic.d.ts"
   },
   "dependencies": {
-    "@azure/msal-browser": "^5.17.0",
+    "@azure/msal-browser": "5.17.0",
     "@microsoft/signalr": "10.0.0",
     "@radix-ui/react-accordion": "1.2.16",
     "@radix-ui/react-alert-dialog": "1.1.19",

@@ -9,7 +9,7 @@ importers:
   .:
     dependencies:
       '@azure/msal-browser':
-        specifier: ^5.17.0
+        specifier: 5.17.0
         version: 5.17.0
       '@microsoft/signalr':
         specifier: 10.0.0
