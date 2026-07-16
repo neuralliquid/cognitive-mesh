@@ -8,6 +8,7 @@
 #   AZURE_TENANT_ID
 #   AZURE_SUBSCRIPTION_ID
 #   COGMESH_SLUICE_API_KEY (optional temporary bridge if a Key Vault reference is unavailable)
+#   COGMESH_COMMAND_NEXUS_OPERATOR_API_KEY
 #
 # Required repository or organization variables:
 #   AZURE_WEBAPP_RESOURCE_GROUP
@@ -135,6 +136,9 @@ jobs:
           COGMESH_SLUICE_MAX_TOKENS: ${{ vars.COGMESH_SLUICE_MAX_TOKENS || '16384' }}
           COGMESH_SLUICE_API_KEY: ${{ secrets.COGMESH_SLUICE_API_KEY }}
           COGMESH_SLUICE_API_KEY_SECRET_URI: ${{ vars.COGMESH_SLUICE_API_KEY_SECRET_URI }}
+          COGMESH_COMMAND_NEXUS_OPERATOR_API_KEY: ${{ secrets.COGMESH_COMMAND_NEXUS_OPERATOR_API_KEY }}
+          COGMESH_COMMAND_NEXUS_TENANT_ID: ${{ vars.COGMESH_COMMAND_NEXUS_TENANT_ID || 'command-nexus' }}
+          COGMESH_COMMAND_NEXUS_OPERATOR_ID: ${{ vars.COGMESH_COMMAND_NEXUS_OPERATOR_ID || 'command-nexus-operator' }}
         run: |
           az webapp config container set \
             --resource-group "${{ vars.AZURE_WEBAPP_RESOURCE_GROUP }}" \
@@ -178,6 +182,11 @@ jobs:
           elif [ -n "${COGMESH_SLUICE_API_KEY}" ]; then
             app_settings+=(SLUICE_API_KEY="${COGMESH_SLUICE_API_KEY}")
           fi
+          if [ -n "${COGMESH_COMMAND_NEXUS_OPERATOR_API_KEY}" ]; then
+            app_settings+=(COMMAND_NEXUS_OPERATOR_API_KEY="${COGMESH_COMMAND_NEXUS_OPERATOR_API_KEY}")
+            app_settings+=(CommandNexus__TenantId="${COGMESH_COMMAND_NEXUS_TENANT_ID}")
+            app_settings+=(CommandNexus__OperatorId="${COGMESH_COMMAND_NEXUS_OPERATOR_ID}")
+          fi
           az webapp config appsettings set \
             --resource-group "${{ vars.AZURE_WEBAPP_RESOURCE_GROUP }}" \
             --name "${{ vars.COGNITIVE_MESH_API_APP_NAME }}" \
@@ -196,6 +205,13 @@ jobs:
               --name "${{ vars.COGNITIVE_MESH_API_APP_NAME }}" \
               --slot staging \
               --setting-names SLUICE_API_KEY || true
+          fi
+          if [ -z "${COGMESH_COMMAND_NEXUS_OPERATOR_API_KEY}" ]; then
+            az webapp config appsettings delete \
+              --resource-group "${{ vars.AZURE_WEBAPP_RESOURCE_GROUP }}" \
+              --name "${{ vars.COGNITIVE_MESH_API_APP_NAME }}" \
+              --slot staging \
+              --setting-names COMMAND_NEXUS_OPERATOR_API_KEY CommandNexus__TenantId CommandNexus__OperatorId || true
           fi
 
       - name: Restart staging slot
@@ -247,6 +263,9 @@ jobs:
           COGMESH_SLUICE_MAX_TOKENS: ${{ vars.COGMESH_SLUICE_MAX_TOKENS || '16384' }}
           COGMESH_SLUICE_API_KEY: ${{ secrets.COGMESH_SLUICE_API_KEY }}
           COGMESH_SLUICE_API_KEY_SECRET_URI: ${{ vars.COGMESH_SLUICE_API_KEY_SECRET_URI }}
+          COGMESH_COMMAND_NEXUS_OPERATOR_API_KEY: ${{ secrets.COGMESH_COMMAND_NEXUS_OPERATOR_API_KEY }}
+          COGMESH_COMMAND_NEXUS_TENANT_ID: ${{ vars.COGMESH_COMMAND_NEXUS_TENANT_ID || 'command-nexus' }}
+          COGMESH_COMMAND_NEXUS_OPERATOR_ID: ${{ vars.COGMESH_COMMAND_NEXUS_OPERATOR_ID || 'command-nexus-operator' }}
         run: |
           az webapp config container set \
             --resource-group "${{ vars.AZURE_WEBAPP_RESOURCE_GROUP }}" \
@@ -289,6 +308,11 @@ jobs:
           elif [ -n "${COGMESH_SLUICE_API_KEY}" ]; then
             app_settings+=(SLUICE_API_KEY="${COGMESH_SLUICE_API_KEY}")
           fi
+          if [ -n "${COGMESH_COMMAND_NEXUS_OPERATOR_API_KEY}" ]; then
+            app_settings+=(COMMAND_NEXUS_OPERATOR_API_KEY="${COGMESH_COMMAND_NEXUS_OPERATOR_API_KEY}")
+            app_settings+=(CommandNexus__TenantId="${COGMESH_COMMAND_NEXUS_TENANT_ID}")
+            app_settings+=(CommandNexus__OperatorId="${COGMESH_COMMAND_NEXUS_OPERATOR_ID}")
+          fi
           az webapp config appsettings set \
             --resource-group "${{ vars.AZURE_WEBAPP_RESOURCE_GROUP }}" \
             --name "${{ vars.COGNITIVE_MESH_API_APP_NAME }}" \
@@ -304,6 +328,12 @@ jobs:
               --resource-group "${{ vars.AZURE_WEBAPP_RESOURCE_GROUP }}" \
               --name "${{ vars.COGNITIVE_MESH_API_APP_NAME }}" \
               --setting-names SLUICE_API_KEY || true
+          fi
+          if [ -z "${COGMESH_COMMAND_NEXUS_OPERATOR_API_KEY}" ]; then
+            az webapp config appsettings delete \
+              --resource-group "${{ vars.AZURE_WEBAPP_RESOURCE_GROUP }}" \
+              --name "${{ vars.COGNITIVE_MESH_API_APP_NAME }}" \
+              --setting-names COMMAND_NEXUS_OPERATOR_API_KEY CommandNexus__TenantId CommandNexus__OperatorId || true
           fi
 
       - name: Restart production

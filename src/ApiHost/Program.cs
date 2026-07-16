@@ -220,6 +220,9 @@ app.MapPost("/api/v1/docket/usage", (DocketUsageEvent usageEvent, IDocketUsageRe
 });
 app.MapPost("/api/v1/command-nexus/execute", async (
     CommandNexusRequest request,
+    HttpContext httpContext,
+    IConfiguration configuration,
+    IWebHostEnvironment environment,
     ICommandNexusExecutor executor,
     CancellationToken cancellationToken) =>
 {
@@ -228,7 +231,21 @@ app.MapPost("/api/v1/command-nexus/execute", async (
         return Results.BadRequest(new { error = "Command is required." });
     }
 
-    var response = await executor.ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
+    var authorization = CommandNexusAuthorization.Authorize(httpContext, configuration, environment);
+    if (!authorization.Allowed)
+    {
+        return authorization.Misconfigured
+            ? Results.Problem("Command Nexus operator authentication is not configured.", statusCode: StatusCodes.Status503ServiceUnavailable)
+            : Results.Unauthorized();
+    }
+
+    var authorizedRequest = request with
+    {
+        TenantId = authorization.TenantId,
+        UserId = authorization.UserId
+    };
+
+    var response = await executor.ExecuteAsync(authorizedRequest, cancellationToken).ConfigureAwait(false);
     return Results.Ok(response);
 });
 app.MapControllers();
@@ -426,7 +443,7 @@ internal sealed class DocketUsageRecorder : IDocketUsageRecorder
 
             return true;
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex)
         {
             _logger.LogWarning(
                 ex,
@@ -509,6 +526,74 @@ internal sealed class DocketUsageRecorder : IDocketUsageRecorder
 internal interface ICommandNexusExecutor
 {
     Task<CommandNexusResponse> ExecuteAsync(CommandNexusRequest request, CancellationToken cancellationToken);
+}
+
+internal static class CommandNexusAuthorization
+{
+    private const string ApiKeyHeaderName = "X-Command-Nexus-Key";
+
+    public static CommandNexusAuthorizationResult Authorize(
+        HttpContext httpContext,
+        IConfiguration configuration,
+        IWebHostEnvironment environment)
+    {
+        var configuredKey = configuration["CommandNexus:OperatorApiKey"]
+            ?? configuration["COMMAND_NEXUS_OPERATOR_API_KEY"];
+
+        if (string.IsNullOrWhiteSpace(configuredKey))
+        {
+            return environment.IsDevelopment()
+                ? Authorized(configuration)
+                : CommandNexusAuthorizationResult.ServiceMisconfigured;
+        }
+
+        var presentedKey = ReadPresentedKey(httpContext);
+        if (!FixedTimeEquals(configuredKey, presentedKey))
+        {
+            return CommandNexusAuthorizationResult.Denied;
+        }
+
+        return Authorized(configuration);
+    }
+
+    private static CommandNexusAuthorizationResult Authorized(IConfiguration configuration)
+    {
+        return new CommandNexusAuthorizationResult(
+            true,
+            false,
+            configuration["CommandNexus:TenantId"] ?? "command-nexus",
+            configuration["CommandNexus:OperatorId"] ?? "command-nexus-operator");
+    }
+
+    private static string? ReadPresentedKey(HttpContext httpContext)
+    {
+        if (httpContext.Request.Headers.TryGetValue(ApiKeyHeaderName, out var apiKeyValues))
+        {
+            return apiKeyValues.FirstOrDefault();
+        }
+
+        var authorization = httpContext.Request.Headers.Authorization.ToString();
+        const string bearerPrefix = "Bearer ";
+        if (authorization.StartsWith(bearerPrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            return authorization[bearerPrefix.Length..].Trim();
+        }
+
+        return null;
+    }
+
+    private static bool FixedTimeEquals(string expected, string? actual)
+    {
+        if (string.IsNullOrWhiteSpace(actual))
+        {
+            return false;
+        }
+
+        var expectedBytes = System.Text.Encoding.UTF8.GetBytes(expected);
+        var actualBytes = System.Text.Encoding.UTF8.GetBytes(actual);
+        return expectedBytes.Length == actualBytes.Length &&
+            System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(expectedBytes, actualBytes);
+    }
 }
 
 internal sealed class SluiceCommandNexusExecutor : ICommandNexusExecutor
@@ -630,6 +715,7 @@ internal sealed class SluiceCommandNexusExecutor : ICommandNexusExecutor
             totalTokens,
             "allowed"));
 
+        using var accountingTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         var usage = await _docket.RecordAsync(new DocketUsageEvent(
             correlationId,
             string.IsNullOrWhiteSpace(request.TenantId) ? "command-nexus" : request.TenantId,
@@ -644,7 +730,7 @@ internal sealed class SluiceCommandNexusExecutor : ICommandNexusExecutor
             estimatedCostUsd,
             "allowed",
             "recorded",
-            DateTimeOffset.UtcNow), cancellationToken).ConfigureAwait(false);
+            DateTimeOffset.UtcNow), accountingTimeout.Token).ConfigureAwait(false);
 
         return new CommandNexusResponse(
             correlationId,
@@ -786,6 +872,16 @@ internal sealed record CommandNexusResponse(
     decimal EstimatedCostUsd,
     string DocketStatus,
     DateTimeOffset CompletedAt);
+
+internal sealed record CommandNexusAuthorizationResult(
+    bool Allowed,
+    bool Misconfigured,
+    string? TenantId,
+    string? UserId)
+{
+    public static CommandNexusAuthorizationResult Denied { get; } = new(false, false, null, null);
+    public static CommandNexusAuthorizationResult ServiceMisconfigured { get; } = new(false, true, null, null);
+}
 
 internal sealed record SluiceHealthResponse(
     ModelRoutingStatus Status,
