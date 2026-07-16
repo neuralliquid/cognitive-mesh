@@ -17,7 +17,7 @@ inputs = {
 
   enable_networking              = false
   enable_monitoring              = false
-  enable_keyvault                = false
+  enable_keyvault                = true
   enable_storage                 = false
   enable_cosmosdb                = false
   enable_redis                   = false
@@ -37,7 +37,7 @@ inputs = {
   api_public_base_url                            = "https://api.cognitivemesh.neuralliquid.ai"
   api_sluice_base_url                            = get_env("COGMESH_SLUICE_BASE_URL", "")
   api_sluice_api_key_secret_uri                  = get_env("COGMESH_SLUICE_API_KEY_SECRET_URI", "")
-  api_sluice_model                               = "default"
+  api_sluice_model                               = "gpt-4o"
   api_sluice_max_tokens                          = 16384
   api_docket_base_url                            = get_env("COGMESH_DOCKET_BASE_URL", "")
   api_docket_audience                            = get_env("COGMESH_DOCKET_AUDIENCE", "")

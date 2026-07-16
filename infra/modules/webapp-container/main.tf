@@ -41,7 +41,20 @@ locals {
     DOCKET_BASE_URL = var.api_docket_base_url
   }, local.api_docket_scope_app_settings, local.api_docket_secret_app_settings)
 
-  api_optional_routing_app_settings = merge(local.api_sluice_app_settings, local.api_docket_app_settings)
+  api_command_nexus_secret_app_settings = var.api_command_nexus_operator_api_key_secret_uri == "" ? {} : {
+    COMMAND_NEXUS_OPERATOR_API_KEY = "@Microsoft.KeyVault(SecretUri=${var.api_command_nexus_operator_api_key_secret_uri})"
+  }
+
+  api_command_nexus_app_settings = merge({
+    CommandNexus__TenantId   = var.api_command_nexus_tenant_id
+    CommandNexus__OperatorId = var.api_command_nexus_operator_id
+  }, local.api_command_nexus_secret_app_settings)
+
+  api_optional_routing_app_settings = merge(
+    local.api_sluice_app_settings,
+    local.api_docket_app_settings,
+    local.api_command_nexus_app_settings
+  )
 
   frontend_oidc_secret_app_settings = var.frontend_mystira_oidc_client_secret_secret_uri == "" ? {} : {
     MYSTIRA_OIDC_CLIENT_SECRET = "@Microsoft.KeyVault(SecretUri=${var.frontend_mystira_oidc_client_secret_secret_uri})"

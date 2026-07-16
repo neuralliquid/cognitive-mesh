@@ -23,7 +23,7 @@ resource "azurerm_application_insights" "this" {
   workspace_id        = azurerm_log_analytics_workspace.this.id
   application_type    = "web"
 
-  retention_in_days = var.appinsights_retention_days
+  retention_in_days   = var.appinsights_retention_days
   sampling_percentage = var.sampling_percentage
 
   tags = merge(var.common_tags, {

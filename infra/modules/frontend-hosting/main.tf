@@ -47,10 +47,10 @@ resource "azurerm_linux_web_app" "this" {
   }
 
   app_settings = {
-    "NEXT_PUBLIC_API_BASE_URL"        = var.api_base_url
-    "WEBSITE_NODE_DEFAULT_VERSION"    = "~22"
+    "NEXT_PUBLIC_API_BASE_URL"            = var.api_base_url
+    "WEBSITE_NODE_DEFAULT_VERSION"        = "~22"
     "WEBSITES_ENABLE_APP_SERVICE_STORAGE" = "false"
-    "SCM_DO_BUILD_DURING_DEPLOYMENT"  = "true"
+    "SCM_DO_BUILD_DURING_DEPLOYMENT"      = "true"
   }
 
   # VNet integration (if subnet provided)
