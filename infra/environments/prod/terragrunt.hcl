@@ -26,7 +26,6 @@ inputs = {
   enable_ai_search               = false
   enable_legacy_frontend_hosting = false
   enable_webapps                 = true
-  enable_public_dns_records      = true
 
   shared_acr_name                = "myssharedacr"
   shared_acr_resource_group_name = "mys-global-shared-rg"
@@ -49,11 +48,6 @@ inputs = {
   frontend_mystira_identity_base_url             = "https://identity.mystira.app"
   frontend_mystira_oidc_client_id                = "neuralliquid-cognitive-mesh-web"
   frontend_mystira_oidc_client_secret_secret_uri = get_env("COGMESH_FRONTEND_MYSTIRA_OIDC_CLIENT_SECRET_SECRET_URI", "")
-  public_dns_zone_name                           = "neuralliquid.ai"
-  public_dns_zone_resource_group_name            = "mys-global-shared-rg"
-  public_dns_api_target_hostname                 = "cognitive-mesh-api-prod.azurewebsites.net"
-  public_dns_frontend_target_hostname            = "cognitive-mesh-frontend-prod.azurewebsites.net"
-  public_dns_app_service_verification_id         = "05B038A75C9A9151C1E0ECF5F652F255707230C7408A56A6686F15CA9CDA6872"
   api_allowed_origins = [
     "https://cognitive-mesh-frontend-prod.azurewebsites.net",
     "https://cognitive-mesh-frontend-prod-staging.azurewebsites.net",
